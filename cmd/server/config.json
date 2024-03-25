@@ -1,5 +1,5 @@
 {
     "server_address": "localhost:8080",
     "database_dsn": "host=127.0.0.1 port=5432 dbname=gophkeeper sslmode=disable",
-    "cert_addresses": "https://dvanadva.ro"
+    "cert_addresses": ["dvanadva.ro", "cucumba.let"]
 } 

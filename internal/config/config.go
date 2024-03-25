@@ -9,9 +9,9 @@ import (
 )
 
 type PConfig struct {
-	ServerAddress *string `json:"server_address,omitempty"`
-	DatabaseDSN   *string `json:"database_dsn,omitempty"`
-	CertAddresses *string `json:"cert_addresses,omitempty"`
+	ServerAddress *string   `json:"server_address,omitempty"`
+	DatabaseDSN   *string   `json:"database_dsn,omitempty"`
+	CertAddresses *[]string `json:"cert_addresses,omitempty"`
 }
 
 var cfg *PConfig

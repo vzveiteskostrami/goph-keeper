@@ -107,29 +107,41 @@ func doHTTP() {
 		}
 	}()
 
-	if strings.Contains(srv.Addr, "localhost") || strings.Contains(srv.Addr, "127.0.0.1") {
-		logging.S().Infow(
-			"Starting server",
-			"addr", srv.Addr,
-		)
-		srv.ListenAndServe()
+	https := strings.HasPrefix(srv.Addr, "https://")
+	if https {
+		srv.Addr = srv.Addr[8:]
 	} else {
+		if strings.HasPrefix(srv.Addr, "http://") {
+			srv.Addr = srv.Addr[7:]
+		} else {
+			https = !(strings.Contains(srv.Addr, "localhost") || strings.Contains(srv.Addr, "127.0.0.1"))
+		}
+	}
+
+	if https {
 		logging.S().Infow(
 			"Starting server with SSL/TLS",
 			"addr", srv.Addr,
 		)
+
 		manager := &autocert.Manager{
 			// директория для хранения сертификатов
 			Cache: autocert.DirCache("cache-dir"),
 			// функция, принимающая Terms of Service издателя сертификатов
 			Prompt: autocert.AcceptTOS,
 			// перечень доменов, для которых будут поддерживаться сертификаты
-			HostPolicy: autocert.HostWhitelist(*config.Get().CertAddresses),
+			HostPolicy: autocert.HostWhitelist(*config.Get().CertAddresses...),
 		}
 		srv.TLSConfig = manager.TLSConfig()
 		if err := srv.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
 			logging.S().Fatal(err)
 		}
+	} else {
+		logging.S().Infow(
+			"Starting server",
+			"addr", srv.Addr,
+		)
+		srv.ListenAndServe()
 	}
 	logging.S().Infoln("Major thread go home")
 }

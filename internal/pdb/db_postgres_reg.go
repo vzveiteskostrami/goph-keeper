@@ -13,7 +13,7 @@ import (
 func (d *PGStorage) Register(login *string, password *string) (code int, err error) {
 	code = http.StatusOK
 	hashLogin := misc.Hash256(*login)
-	rows, err := d.db.QueryContext(context.Background(), "SELECT 1 FROM UDATA WHERE USER_NAME=$1;", hashLogin)
+	rows, err := d.db.QueryContext(context.Background(), "SELECT 1 FROM UAUTH WHERE USER_NAME=$1;", hashLogin)
 	if err == nil && rows.Err() != nil {
 		err = rows.Err()
 	}
@@ -42,7 +42,7 @@ func (d *PGStorage) Register(login *string, password *string) (code int, err err
 	hashPwd := misc.Hash256(*password)
 
 	_, err = d.db.ExecContext(context.Background(),
-		"INSERT INTO UDATA (USERID,USER_NAME,USER_PWD,DELETE_FLAG) VALUES ($1,$2,$3,false);",
+		"INSERT INTO UAUTH (USERID,USER_NAME,USER_PWD,DELETE_FLAG) VALUES ($1,$2,$3,false);",
 		userID, hashLogin, hashPwd)
 	if err != nil {
 		logging.S().Error(err)
@@ -59,7 +59,7 @@ func (d *PGStorage) Authent(login *string, password *string) (token string, code
 	hashPwd := misc.Hash256(*password)
 
 	rows, err := d.db.QueryContext(context.Background(),
-		"SELECT USERID,USER_PWD FROM UDATA WHERE USER_NAME=$1;",
+		"SELECT USERID,USER_PWD FROM UAUTH WHERE USER_NAME=$1;",
 		hashLogin)
 	if err == nil && rows.Err() != nil {
 		err = rows.Err()
