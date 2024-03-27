@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/vzveiteskostrami/goph-keeper/internal/logging"
@@ -52,7 +53,8 @@ func (d *PGStorage) Register(login *string, password *string) (code int, err err
 
 	return
 }
-func (d *PGStorage) Authent(login *string, password *string) (token string, code int, err error) {
+
+func (d *PGStorage) Authent(login *string, password *string, until time.Time) (token string, code int, err error) {
 	token = ""
 	code = http.StatusOK
 	hashLogin := misc.Hash256(*login)
@@ -89,13 +91,14 @@ func (d *PGStorage) Authent(login *string, password *string) (token string, code
 	}
 
 	if ok {
-		token, err = misc.MakeToken(userID)
+		token, err = misc.MakeToken(userID, until)
 		if err != nil {
 			logging.S().Error(err)
 			code = http.StatusInternalServerError
 		}
 	} else {
-		err = errors.New("неверная пара логин/пароль")
+		s := "Неверная пара логин/пароль."
+		err = errors.New(s)
 		logging.S().Infoln(*login, *password, ":", err)
 		code = http.StatusUnauthorized
 	}

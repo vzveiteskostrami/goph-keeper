@@ -22,7 +22,7 @@ type GSStorage interface {
 	Close()
 	UserIDExists(userID int64) (ok bool, err error)
 	Register(login *string, password *string) (code int, err error)
-	Authent(login *string, password *string) (token string, code int, err error)
+	Authent(login *string, password *string, until time.Time) (token string, code int, err error)
 }
 
 func Init() {
@@ -43,8 +43,8 @@ func Register(login *string, password *string) (code int, err error) {
 	return
 }
 
-func Authent(login *string, password *string) (token string, code int, err error) {
-	token, code, err = store.Authent(login, password)
+func Authent(login *string, password *string, until time.Time) (token string, code int, err error) {
+	token, code, err = store.Authent(login, password, until)
 	return
 }
 

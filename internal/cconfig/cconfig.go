@@ -36,14 +36,15 @@ func ReadData() error {
 		*cfg.ServerAddress += "/"
 	}
 
-	lg := flag.String("l", "Логин не указан в командной строке", "User's login")
+	lg := flag.String("l", "Не обязательно указывать", "User's login")
 	cfg.Operation = flag.String("o", "", "User's operation")
 
 	flag.Parse()
 
-	if *lg != "Логин не указан в командной строке" {
+	if *lg != "Не обязательно указывать" {
 		cfg.Login = lg
 	}
+
 	return nil
 }
 

@@ -75,14 +75,11 @@ func mainRouter() chi.Router {
 		r.Post("/", routes.Authf)
 	})
 
-	r.Route("/api", func(r chi.Router) {
+	r.Route("/", func(r chi.Router) {
 		r.Use(compressing.GZIPHandle)
 		r.Use(logging.WithLogging)
 		r.Use(auth.AuthHandle)
-		//r.Post("/shorten", shorturl.SetJSONLinkf)
-		//r.Post("/shorten/batch", shorturl.SetJSONBatchLinkf)
-		//r.Get("/user/urls", shorturl.GetOwnerURLsListf)
-		//r.Delete("/user/urls", shorturl.DeleteOwnerURLsListf)
+		r.Post("/sync", routes.Syncf)
 	})
 
 	return r

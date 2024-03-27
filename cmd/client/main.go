@@ -17,13 +17,15 @@ func main() {
 	cfg := cconfig.Get()
 
 	if cfg.Operation == nil || *cfg.Operation == "" {
-		fmt.Println("Не указана операция \"command line>client -o <operation>\"")
+		fmt.Println("Не указана операция \"command line>client -o=<operation>\"")
 		return
 	}
 
 	// Если операция требует обращения к серверу, сначала просто проверим его
 	// наличие в системе. Если его нет, то и затевать ничего не надо.
-	if *cfg.Operation == "registration" {
+	if *cfg.Operation == "registration" ||
+		*cfg.Operation == "login" ||
+		*cfg.Operation == "sync" {
 		err := chttp.CheckServerPresent()
 		if err != nil {
 			fmt.Println("Проверка сервера:", err)
@@ -35,6 +37,10 @@ func main() {
 
 	if *cfg.Operation == "registration" {
 		oper.Registration(*cfg.Login, "")
+	} else if *cfg.Operation == "login" {
+		oper.Authorization(*cfg.Login, "", 0)
+	} else if *cfg.Operation == "sync" {
+		oper.Syncronize()
 	} else {
 		fmt.Println("Не опознана операция " + *cfg.Operation)
 	}

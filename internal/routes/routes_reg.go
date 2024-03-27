@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/vzveiteskostrami/goph-keeper/internal/adb"
 	"github.com/vzveiteskostrami/goph-keeper/internal/logging"
@@ -12,6 +13,11 @@ import (
 
 func Registerf(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	regIn, err := misc.ExtractRegInfo(io.NopCloser(bytes.NewBuffer(body)))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -33,10 +39,10 @@ func Registerf(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), code)
 		} else {
 			r.Body = io.NopCloser(bytes.NewBuffer(body))
-			Authf(w, r)
+			//Authf(w, r)
 		}
 	case <-r.Context().Done():
-		logging.S().Infow("Регистрация прервана на клиентской стороне")
+		logging.S().Infow("Регистрация прервана на клиентской стороне.")
 		w.WriteHeader(http.StatusGone)
 	}
 }
@@ -48,13 +54,28 @@ func Authf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if regIn.SessionDuration == nil {
+		http.Error(w, "Недостаточно аргументов. Отсутствует продолжительность сессии.", http.StatusPreconditionFailed)
+		return
+	}
+
+	/*
+		t, err := time.Parse(time.RFC3339)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusPreconditionFailed)
+			return
+		}
+	*/
+
 	completed := make(chan struct{})
 
 	code := http.StatusOK
 	token := ""
 
 	go func() {
-		token, code, err = adb.Authent(regIn.Login, regIn.Password)
+		token, code, err = adb.Authent(regIn.Login,
+			regIn.Password,
+			time.Now().Add(time.Duration(*regIn.SessionDuration)*time.Minute))
 		completed <- struct{}{}
 	}()
 
@@ -72,30 +93,4 @@ func Authf(w http.ResponseWriter, r *http.Request) {
 		logging.S().Infow("Аутентификация прервана на клиентской стороне")
 		w.WriteHeader(http.StatusGone)
 	}
-}
-
-func Echof(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	completed := make(chan struct{})
-
-	go func() {
-		w.Write(body)
-		completed <- struct{}{}
-	}()
-
-	select {
-	case <-completed:
-	case <-r.Context().Done():
-		logging.S().Infow("Эхо прервано на клиентской стороне")
-		w.WriteHeader(http.StatusGone)
-	}
-}
-
-func Readyf(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte(""))
 }
