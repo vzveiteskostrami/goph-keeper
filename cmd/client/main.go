@@ -5,6 +5,7 @@ import (
 
 	"github.com/vzveiteskostrami/goph-keeper/internal/cconfig"
 	"github.com/vzveiteskostrami/goph-keeper/internal/chttp"
+	"github.com/vzveiteskostrami/goph-keeper/internal/co"
 	"github.com/vzveiteskostrami/goph-keeper/internal/oper"
 )
 
@@ -17,62 +18,83 @@ func main() {
 	cfg := cconfig.Get()
 
 	if cfg.Operation == nil || *cfg.Operation == "" {
-		fmt.Println("Не указана операция \"command line>client -o=<operation>\"")
+		fmt.Println("Не указана операция \"-o=<operation>\"")
 		return
+	}
+
+	// Для отлова хитрожопых, которые поменяют системное время и таким образом
+	// захотят продлить время работы чужого локального токена вспять.
+	// Если это регистрация или новая сессия, то пофиг. А вот если какие-то
+	// операции, то надо проверить, что текущее время строго больше времени
+	// последней проведённой операции.
+	if !(*cfg.Operation == "registration" ||
+		*cfg.Operation == "session") {
+		if !oper.CheckLastOperationDateTime() {
+			return
+		}
 	}
 
 	// Если операция требует обращения к серверу, сначала просто проверим его
 	// наличие в системе. Если его нет, то и затевать ничего не надо.
 	if *cfg.Operation == "registration" ||
-		*cfg.Operation == "login" ||
+		(*cfg.Operation == "session" && *cfg.Place == co.SessionBoth) ||
 		*cfg.Operation == "sync" {
 		err := chttp.CheckServerPresent()
 		if err != nil {
-			fmt.Println("Проверка сервера:", err)
 			fmt.Println("Сервер неработоспособен. Операция в данный момент невозможна.")
 			fmt.Println("Попробуйте выполнить операцию позднее.")
+			fmt.Println("При проверке сервера произошла ошибка:")
+			fmt.Println(err)
 			return
 		}
 	}
 
+	sessionOwner := ""
+	// Если операция требует наличия локальной сессии, проверим, что она открыта и
+	// не истекла.
+	if *cfg.Operation == "get" ||
+		*cfg.Operation == "set" ||
+		*cfg.Operation == "strict" ||
+		*cfg.Operation == "list" ||
+		*cfg.Operation == "delete" ||
+		*cfg.Operation == "new" {
+		var err error
+		sessionOwner, err = oper.CheckLocalSession()
+		if err != nil {
+			fmt.Println("Неудачная проверка локальной сессии:")
+			fmt.Println(err)
+			return
+		} else {
+			fmt.Println("Владелец сессии", sessionOwner)
+		}
+	}
+
 	if *cfg.Operation == "registration" {
-		oper.Registration(*cfg.Login, "")
-	} else if *cfg.Operation == "login" {
-		oper.Authorization(*cfg.Login, "", 0)
+		oper.Registration(*cfg.Login, *cfg.Password)
+	} else if *cfg.Operation == "session" {
+		oper.Authorization(*cfg.Login, *cfg.Password, *cfg.Place, *cfg.SessionDuration)
+	} else if *cfg.Operation == "list" {
+		oper.ShowEntityList(sessionOwner, *cfg.Brief, *cfg.EntityKind)
+	} else if *cfg.Operation == "new" {
+		oper.NewEntity(sessionOwner,
+			*cfg.EntityKind,
+			*cfg.EntityName,
+			*cfg.WriteLogin,
+			*cfg.WritePassword,
+			"",
+			"",
+			"",
+			"",
+			"",
+			*cfg.WriteFile)
+	} else if *cfg.Operation == "delete" {
+		oper.DeleteEntity(sessionOwner, *cfg.EntityName)
+	} else if *cfg.Operation == "get" {
+		oper.GetEntity(sessionOwner, *cfg.EntityName)
 	} else if *cfg.Operation == "sync" {
 		oper.Syncronize()
 	} else {
 		fmt.Println("Не опознана операция " + *cfg.Operation)
 	}
+	oper.SaveLastOperationDateTime()
 }
-
-/*
-
-	//req, err := http.NewRequest("GET", `https://example.net`, nil)
-	//ctx, _ := context.WithTimeout(context.TODO(), 200 * time.Milliseconds)
-	//resp, err := http.DefaultClient.Do(req.WithContext(ctx))
-	// Be sure to handle errors.
-	//defer resp.Body.Close()
-
-	data := `{"name": "Иванов Иван", "email": "ivan@example.com"}`
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	client := &http.Client{Transport: tr}
-	response, err := client.Post("http://localhost:8080/echo", "application/json", strings.NewReader(data))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer response.Body.Close()
-
-	fmt.Printf("Status Code: %d\r\n", response.StatusCode)
-	for k, v := range response.Header {
-		// заголовок может иметь несколько значений,
-		// но для простоты запросим только первое
-		fmt.Printf("%s: %v\r\n", k, v[0])
-	}
-	body, _ := io.ReadAll(response.Body)
-	fmt.Println("Body:\r\n", string(body))
-}
-*/

@@ -7,10 +7,12 @@ require (
 	github.com/go-chi/chi v1.5.5
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/golang-migrate/migrate v3.5.4+incompatible
+	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.10.9
 	github.com/sandipmavani/hardwareid v0.0.0-20190923123414-c3f8f1d75c38
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.21.0
+	golang.org/x/term v0.18.0
 )
 
 require (
@@ -28,5 +30,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/net v0.21.0 // indirect
+	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 )

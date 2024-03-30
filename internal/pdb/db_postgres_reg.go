@@ -97,9 +97,9 @@ func (d *PGStorage) Authent(login *string, password *string, until time.Time) (t
 			code = http.StatusInternalServerError
 		}
 	} else {
-		s := "Неверная пара логин/пароль."
+		s := "неверная пара логин/пароль"
 		err = errors.New(s)
-		logging.S().Infoln(*login, *password, ":", err)
+		logging.S().Infoln(*login, *password, ":", s)
 		code = http.StatusUnauthorized
 	}
 	return

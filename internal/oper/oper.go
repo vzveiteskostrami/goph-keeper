@@ -1,16 +1,20 @@
 package oper
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
+	"github.com/vzveiteskostrami/goph-keeper/internal/cconfig"
 	"github.com/vzveiteskostrami/goph-keeper/internal/chttp"
+	"github.com/vzveiteskostrami/goph-keeper/internal/co"
 	"github.com/vzveiteskostrami/goph-keeper/internal/dialog"
 	"github.com/vzveiteskostrami/goph-keeper/internal/misc"
 )
 
 func Registration(login string, password string) {
-	err := makeLocalDir("ADM")
+	err := misc.MakeDir("ADM")
 	if err != nil {
 		fmt.Println("Не удалось создать административную директорию. Ошибка:")
 		fmt.Println(err.Error())
@@ -31,12 +35,11 @@ func Registration(login string, password string) {
 		return
 	}
 
-	fmt.Print("----------------------------------\n\r")
-	fmt.Print("-- Регистрация нового пользователя\n\r")
+	delim := dialog.DrawHeader("Регистрация нового пользователя", false)
 	for {
-		fmt.Print("----------------------------------\n\r")
+		fmt.Print(delim + "\n\r")
 		if login == "" {
-			if login = dialog.GetAnswer("Введите желаемый логин:"); login == "-" {
+			if login = dialog.GetAnswer("Введите желаемый логин:", false, false); login == "-" {
 				fmt.Print(refuse)
 				break
 			}
@@ -44,7 +47,7 @@ func Registration(login string, password string) {
 			fmt.Print("Логин ", login, "\n\r")
 		}
 		if password == "" {
-			if password = dialog.GetAnswer("Введите желаемый пароль:"); password == "-" {
+			if password = dialog.GetAnswer("Введите желаемый пароль:", true, false); password == "-" {
 				fmt.Print(refuse)
 				break
 			}
@@ -63,7 +66,8 @@ func Registration(login string, password string) {
 			} else {
 				fmt.Println("\rВы зарегистрированы! Добро пожаловать на борт!")
 				if dialog.Yn("Желаете открыть сессию прямо сейчас") {
-					Authorization(login, password, 0)
+					cfg := cconfig.Get()
+					Authorization(login, password, *cfg.Place, 0)
 				}
 				break
 			}
@@ -84,13 +88,16 @@ func Registration(login string, password string) {
 	}
 }
 
-func Authorization(login string, password string, sessDuration int64) {
-	fmt.Print("----------------------------------\n\r")
-	fmt.Print("-- Авторизация\n\r")
+func Authorization(login string, password string, place int, sessDuration int64) {
+	if sessDuration < 1 || sessDuration > 5*365*24*60 {
+		sessDuration = 0
+	}
+
+	delim := dialog.DrawHeader("Авторизация", false)
 	for {
-		fmt.Print("----------------------------------\n\r")
+		fmt.Print(delim + "\n\r")
 		if login == "" {
-			if login = dialog.GetAnswer("Введите логин:"); login == "-" {
+			if login = dialog.GetAnswer("Введите логин:", false, false); login == "-" {
 				fmt.Print(refuse)
 				return
 			}
@@ -98,12 +105,12 @@ func Authorization(login string, password string, sessDuration int64) {
 			fmt.Print("Логин ", login, "\n\r")
 		}
 		if password == "" {
-			if password = dialog.GetAnswer("Введите пароль:"); password == "-" {
+			if password = dialog.GetAnswer("Введите пароль:", true, false); password == "-" {
 				fmt.Print(refuse)
 				return
 			}
 		} else {
-			fmt.Print("Пароль ", password, "\n\r")
+			fmt.Print("Пароль введён\n\r")
 		}
 
 		if sessDuration == 0 {
@@ -117,43 +124,135 @@ func Authorization(login string, password string, sessDuration int64) {
 			fmt.Print("Продолжительность сессии ", sessDuration, " минут.\n\r")
 		}
 
-		fmt.Print("Попытка авторизоваться...")
-		_, err := chttp.Authorization(login, password, sessDuration)
-		if err == nil {
-			fmt.Println("\rВы авторизованы. Сессия валидна в течение", sessDuration, "минут.")
-			//fixCurrentUser(login, time.Now().Add(time.Duration(sessDuration)*time.Minute))
-			break
-		} else {
-			fmt.Println("\rВо время авторизации сервер вернул ошибку:")
-			fmt.Println(err.Error())
-			if !dialog.Yn("Попробовать ещё раз") {
+		if place == co.SessionNotDefined {
+			rs := dialog.Menu([]string{"Выберите место авторизации:", "Локальное хранилище", "Сервер и локальное хранилище"})
+			if rs == 0 {
 				break
 			}
+			if rs == 1 {
+				place = co.SessionLocal
+			} else {
+				place = co.SessionBoth
+			}
+		}
+
+		var err error
+		if place == co.SessionBoth {
+			var code int
+			fmt.Print("Попытка авторизоваться на сервере...")
+			code, err = chttp.Authorization(login, password, sessDuration)
+			if err != nil {
+				fmt.Println("\rВо время авторизации сервер вернул ошибку:")
+				fmt.Println(err.Error())
+				if !dialog.Yn("Попробовать ещё раз") {
+					break
+				}
+			}
+			if code == http.StatusUnauthorized {
+				login = ""
+				password = ""
+			}
+		}
+
+		if err == nil && (place == co.SessionLocal || place == co.SessionBoth) {
+			fmt.Print("Попытка авторизоваться локально...")
+			var checked bool
+			checked, err = localAuthorization(login, password)
+			if err != nil {
+				fmt.Println("\rВо время локальной авторизации произошла ошибка:")
+				fmt.Println(err.Error())
+				if !dialog.Yn("Попробовать ещё раз") {
+					break
+				}
+				if checked {
+					login = ""
+					password = ""
+				}
+			} else {
+				fmt.Print("\rСохранение токена...")
+				if err = saveLocalToken(login, time.Now().Add(time.Duration(sessDuration)*time.Minute)); err != nil {
+					fmt.Println("\rВы авторизовались, но во время сохранения сессии произошла ошибка:")
+					fmt.Println(err.Error())
+					if !dialog.Yn("Попробовать ещё раз") {
+						break
+					}
+				}
+			}
+		}
+
+		if err == nil {
+			ss := "\rВы авторизованы "
+			if place == co.SessionBoth {
+				ss += "на сервере и "
+			}
+			ss += "в локальном хранилище. Сессия валидна в течение"
+			fmt.Println(ss, sessDuration, "минут.")
+			break
 		}
 	}
 }
 
+func SaveLastOperationDateTime() {
+	err := misc.MakeDir("ADM")
+	if err != nil {
+		fmt.Println("Не удалось создать административную директорию. " + err.Error())
+		return
+	}
+
+	key, err := misc.UnicKeyForExeDir()
+	if err != nil {
+		fmt.Println("Не удалось получить ключ. Ошибка: " + err.Error())
+		return
+	}
+
+	var date []authData
+	da := authData{Until: time.Now()}
+	date = append(date, da)
+	b, err := json.Marshal(date)
+	if err != nil {
+		fmt.Println("Не удалось закодировать date. Ошибка:" + err.Error())
+		return
+	}
+	err = misc.SaveToFileProtectedZIP("ADM\\local_setts", "setts", key, b)
+	if err != nil {
+		fmt.Println("Сохранение файла local_setts. Ошибка:" + err.Error())
+	}
+}
+
+func CheckLastOperationDateTime() bool {
+	ok, err := misc.FileExists("ADM\\local_setts")
+	if err == nil {
+		if !ok {
+			fmt.Println("Нет файла local_setts. Выполните регистрацию или авторизацию.")
+			return false
+		}
+		key, err := misc.UnicKeyForExeDir()
+		if err == nil {
+			var raw []byte
+			raw, _, err = misc.ReadFromFileProtectedZIP("ADM\\local_setts", key)
+			if err == nil {
+				var ada []authData
+				ada, err = getAuthData(raw)
+				if err == nil {
+					if time.Until(ada[0].Until) > 0 {
+						fmt.Println("Ну вот нахера так делать?")
+						return false
+					}
+				}
+			}
+		}
+	}
+	if err != nil {
+		fmt.Println("Чтение файла local_setts. Ошибка:" + err.Error())
+	}
+	return err == nil
+}
+
 func Syncronize() {
-	fmt.Print("----------------------------------\n\r")
-	fmt.Print("-- Синхронизация\n\r")
-	fmt.Print("----------------------------------\n\r")
+	dialog.DrawHeader("Синхронизация", true)
 	_, err := chttp.Syncronize()
 	if err != nil {
 		fmt.Println("\rВо время синхронизации сервер вернул ошибку:")
 		fmt.Println(err.Error())
 	}
 }
-
-/*
-func Session() {
-	resp, err := http.Get(serverName + serverPort + "readcookie")
-	if err != nil {
-		log.Fatalln(err)
-	}
-	for _, cookie := range resp.Cookies() {
-		if cookie.Name == "SessionID" {
-			log.Println("Cookie: ", cookie.Value)
-		}
-	}
-}
-*/

@@ -24,7 +24,7 @@ func getResponce(method string, route string, body io.Reader) (*http.Response, e
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.TODO(), 500*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.TODO(), 5000*time.Millisecond)
 	defer cancel()
 
 	tr := &http.Transport{
