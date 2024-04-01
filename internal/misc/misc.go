@@ -214,6 +214,26 @@ func UnicKeyForExeDir() (string, error) {
 	return unicKeyForDir, nil
 }
 
+func SaveToFileProtectedZIP_r(fname string, key string, savename string, r io.Reader) error {
+	permissions := fs.FileMode(0644)
+
+	raw := new(bytes.Buffer)
+	zipw := zp.NewWriter(raw)
+
+	f, err := zipw.Encrypt(savename, key)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(f, r)
+	if err != nil {
+		return err
+	}
+
+	zipw.Close()
+	err = os.WriteFile(fname, raw.Bytes(), permissions)
+	return err
+}
+
 // Сохранение информации в ZIP файл с паролем.
 func SaveToFileProtectedZIP(fname string, iname string, key string, b []byte) error {
 	permissions := fs.FileMode(0644)
@@ -296,73 +316,58 @@ func ReadFromFileProtectedZIP(fname string, key string) ([]byte, bool, error) {
 	return b, false, nil
 }
 
-func ReadFromFileProtectedZIP_finfo(fname string, key string) (FileInfoFromZIP, bool, error) {
+func ReadFromFileProtectedZIP_file_info(fname string, key string) (FileInfoFromZIP, error) {
 	var fi FileInfoFromZIP
 	f, err := os.Open(fname)
 	if err != nil {
-		return fi, false, err
+		return fi, err
 	}
 	r, err := io.ReadAll(f)
 	if err != nil {
-		return fi, false, err
+		return fi, err
 	}
 
 	zipr, err := zp.NewReader(bytes.NewReader(r), int64(len(r)))
 	if err != nil {
-		return fi, false, err
+		return fi, err
 	}
 
-	for a, z := range zipr.File {
-		if a == 1 {
-			z.SetPassword(key)
-			fi.FileName = z.FileHeader.FileInfo().Name()
-			fi.FileSize = z.FileHeader.FileInfo().Size()
-			//rr, err := z.Open()
-			//if err != nil {
+	for _, z := range zipr.File {
+		fi.FileName = z.FileHeader.FileInfo().Name()
+		fi.FileSize = z.FileHeader.FileInfo().Size()
+	}
+	return fi, nil
+}
+
+func ReadFromFileProtectedZIP_w(fname string, key string, w io.Writer) (bool, error) {
+	f, err := os.Open(fname)
+	if err != nil {
+		return false, err
+	}
+	r, err := io.ReadAll(f)
+	if err != nil {
+		return false, err
+	}
+
+	zipr, err := zp.NewReader(bytes.NewReader(r), int64(len(r)))
+	if err != nil {
+		return false, err
+	}
+
+	for _, z := range zipr.File {
+		z.SetPassword(key)
+		rr, err := z.Open()
+		if err != nil {
 			// Если мы не смогли открыть с нашим паролем key, полученным по алгоритму,
 			// то значит нам этот файл подложили снаружи, чтобы попробовать посмотреть
 			// чей-то аккаунт с новым паролем, который определили в новом регистрационном файле.
 			// Ведь мы же не можем паковать ни с чем, кроме этого key.
-			//	return fi, true, err
-			//}
-			//b, _ = io.ReadAll(rr)
-			//rr.Close()
+			return true, err
 		}
-	}
-	return fi, false, nil
-}
-
-func ReadFromFileProtectedZIP_fonly_w(fname string, key string, w io.Writer) (bool, error) {
-	f, err := os.Open(fname)
-	if err != nil {
-		return false, err
-	}
-	r, err := io.ReadAll(f)
-	if err != nil {
-		return false, err
-	}
-
-	zipr, err := zp.NewReader(bytes.NewReader(r), int64(len(r)))
-	if err != nil {
-		return false, err
-	}
-
-	for a, z := range zipr.File {
-		if a == 1 {
-			z.SetPassword(key)
-			rr, err := z.Open()
-			if err != nil {
-				// Если мы не смогли открыть с нашим паролем key, полученным по алгоритму,
-				// то значит нам этот файл подложили снаружи, чтобы попробовать посмотреть
-				// чей-то аккаунт с новым паролем, который определили в новом регистрационном файле.
-				// Ведь мы же не можем паковать ни с чем, кроме этого key.
-				return true, err
-			}
-			_, err = io.Copy(w, rr)
-			rr.Close()
-			if err != nil {
-				return true, err
-			}
+		_, err = io.Copy(w, rr)
+		rr.Close()
+		if err != nil {
+			return true, err
 		}
 	}
 	return false, nil

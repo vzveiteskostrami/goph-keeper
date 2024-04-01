@@ -1,26 +1,22 @@
 package oper
 
 import (
-	"encoding/json"
-	"errors"
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/vzveiteskostrami/goph-keeper/internal/co"
 	"github.com/vzveiteskostrami/goph-keeper/internal/dialog"
 	"github.com/vzveiteskostrami/goph-keeper/internal/misc"
 )
 
-const otk string = "Отказ от ввода."
-
-func NewEntity(owner string, etype int, name string, login string, password string, number string,
-	expired string, holder string, cvv string, note string, file string) {
+func SetEntity(owner string, name string, login string, password string, number string,
+	expired string, holder string, cvv string, note string, file string, txt string) {
 
 	if name == "" {
-		name = dialog.GetAnswer("Введите имя новой сущности:", false, false)
+		name = dialog.GetAnswer("Введите имя изменяемой сущности:", false, false)
 		if name == "-" {
 			fmt.Println(otk)
 			return
@@ -31,64 +27,13 @@ func NewEntity(owner string, etype int, name string, login string, password stri
 	if err != nil {
 		fmt.Println("Во время проверки списка сущностей произошла ошибка:")
 		fmt.Println(err)
-		fmt.Println("Ввод новой сущности прекращён.")
-		return
-	}
-
-	if ok {
-		fmt.Println("Сущность с таким названием уже существует.")
-		fmt.Println("Ввод новой сущности прекращён.")
-		return
-	}
-
-	if etype == co.EntityNotDefined {
-		et := dialog.Menu([]string{"Выберите тип новой сущности:", "Пара логин/пароль", "Данные банковской карты",
-			"Текстовая информация", "Бинарная информация (Файл)"})
-		if et == 0 {
-			fmt.Println(otk)
-			return
-		}
-		etype = et
-	}
-
-	if note == "" {
-		note = dialog.GetAnswer("Введите пояснения к сущности, если требуется:", false, true)
-		if note == "-" {
-			fmt.Println(otk)
-			return
-		}
-	}
-
-	if etype == co.EntityLoginPassword {
-		newEntityLoPa(owner, name, login, password, note)
-	} else if etype == co.EntityCard {
-		newEntityCard(owner, name, number, expired, holder, cvv, note)
-	} else if etype == co.EntityText {
-
-	} else if etype == co.EntityBinary {
-		newEntityBinary(owner, name, file, note)
-	}
-}
-
-func DeleteEntity(owner string, name string) {
-	if name == "" {
-		name = dialog.GetAnswer("Введите имя удаляемой сущности:", false, false)
-		if name == "-" {
-			fmt.Println(otk)
-			return
-		}
-	}
-
-	ok, err := entityExists(owner, name)
-	if err != nil {
-		fmt.Println("Во время проверки списка сущностей произошла ошибка:")
-		fmt.Println(err)
-		fmt.Println("Удаление сущности прекращёно.")
+		fmt.Println("Изменение сущности прекращено.")
 		return
 	}
 
 	if !ok {
-		fmt.Println("Сущности с таким названием не существует.")
+		fmt.Println("Сущности с таким именем не существует.")
+		fmt.Println("Изменение сущности прекращено.")
 		return
 	}
 
@@ -96,7 +41,7 @@ func DeleteEntity(owner string, name string) {
 	if err != nil {
 		fmt.Println("Во время получения списка сущностей произошла ошибка:")
 		fmt.Println(err)
-		fmt.Println("Удаление сущности прекращёно.")
+		fmt.Println("Изменение сущности прекращено.")
 		return
 	}
 
@@ -112,99 +57,78 @@ func DeleteEntity(owner string, name string) {
 		return
 	}
 
-	key, err := misc.UnicKeyForExeDir()
-	if err != nil {
-		fmt.Println("Не удалось получить ключ. Ошибка:")
-		fmt.Println(err)
-		fmt.Println("Удаление сущности прекращёно.")
+	if note == "" {
+		if list[n].Note != nil && *list[n].Note != "" {
+			fmt.Println("Пояснение к сущности:")
+			fmt.Println(*list[n].Note)
+			q := dialog.Menu([]string{"Выберите действие", "Оставить как есть", "Удалить пояснение", "Ввести новое"})
+			if q == 1 {
+				note = *list[n].Note
+			} else if q == 3 {
+				note = dialog.GetAnswer("Введите пояснение к сущности, если требуется:", false, true)
+				if note == "-" {
+					fmt.Println(otk)
+					return
+				}
+			}
+		} else {
+			note = dialog.GetAnswer("Старого пояснения нет. Введите пояснение к сущности, если требуется:", false, true)
+			if note == "-" {
+				fmt.Println(otk)
+				return
+			}
+		}
 	}
 
-	filename := *list[n].File
-	ename := *list[n].Name
-	list = append(list[:n], list[n+1:]...)
-
-	b, err := json.Marshal(list)
-	if err != nil {
-		fmt.Println("Не удался marshal. Ошибка:")
-		fmt.Println(err)
-		fmt.Println("Удаление сущности прекращёно.")
-		return
+	if *list[n].Etype == co.EntityLoginPassword {
+		setEntityLoPa(list[n], n, login, password, note)
+	} else if *list[n].Etype == co.EntityCard {
+		setEntityCard(list[n], n, number, expired, holder, cvv, note)
+	} else if *list[n].Etype == co.EntityText {
+		setEntityText(list[n], n, txt, note)
+	} else if *list[n].Etype == co.EntityBinary {
+		setEntityBinary(list[n], n, file, note)
 	}
-
-	err = os.Remove("ADM\\" + filename)
-	if err != nil {
-		fmt.Println("Не удалось удалить файл хранения. Ошибка:")
-		fmt.Println(err)
-		fmt.Println("Удаление сущности прекращёно.")
-		return
-	}
-
-	err = misc.SaveToFileProtectedZIP("ADM\\list", "list", key, b)
-	if err != nil {
-		fmt.Println("Не удалось сохранить list. Ошибка:")
-		fmt.Println(err)
-		fmt.Println("Но файл данных уже удалён.")
-		return
-	}
-
-	fmt.Println("Сущность \"" + ename + "\" успешно удалена из локального хранилища.")
-	fmt.Println("Для удаления с сервера проведите синхронизацию.")
 }
 
-func newEntityLoPa(owner string, name string, login string, password string, note string) {
-	key, err := misc.UnicKeyForExeDir()
-	if err != nil {
-		fmt.Println("Ошибка получения ключа:")
-		fmt.Println(err)
-		fmt.Println("Сохранение невозможно.")
-		return
-	}
-
+func setEntityLoPa(data entityData, pos int, login string, password string, note string) {
+	fmt.Println("Сохранённый логин:", *data.Login)
 	if login == "" {
-		login = dialog.GetAnswer("Введите сохраняемый логин:", false, false)
+		login = dialog.GetAnswer(posta("Новый логин"), false, true)
 		if login == "-" {
 			fmt.Println(otk)
 			return
+		} else if login == "" {
+			login = *data.Login
 		}
+	} else {
+		fmt.Println("Новый логин:", login)
 	}
 
+	fmt.Println("Сохранённый пароль есть")
 	if password == "" {
-		password = dialog.GetAnswer("Введите сохраняемый пароль:", true, false)
+		password = dialog.GetAnswer(posta("Новый пароль"), true, true)
 		if password == "-" {
 			fmt.Println(otk)
 			return
+		} else if password == "" {
+			password = *data.Password
 		}
+	} else {
+		fmt.Println("Новый пароль указан")
 	}
 
 	cd := time.Now()
-	et := co.EntityLoginPassword
-
-	var data entityData
-	data.Etype = &et
-	data.CreateDate = &cd
+	data.LocalDate = &cd
 	data.Login = &login
 	data.Password = &password
-	data.Name = &name
-	data.Owner = &owner
-	data.Note = &note
-
-	fileName := uuid.New().String()
-	data.File = &fileName
-
-	b, err := json.Marshal(data)
-	if err != nil {
-		fmt.Println("Неудачный marshal.")
-		fmt.Println("Сохранение невозможно.")
-		return
+	if note != "" {
+		data.Note = &note
+	} else {
+		data.Note = nil
 	}
 
-	err = misc.SaveToFileProtectedZIP("ADM\\"+fileName, "lopa", key, b)
-	if err != nil {
-		fmt.Println("Ошибка при сохранении:")
-		fmt.Println(err)
-		return
-	}
-	err = addToList(data)
+	err := setInList(data, pos)
 	if err != nil {
 		fmt.Println("Ошибка при сохранении в список:")
 		fmt.Println(err)
@@ -213,78 +137,72 @@ func newEntityLoPa(owner string, name string, login string, password string, not
 	fmt.Println("Данные успешно сохранены.")
 }
 
-func newEntityCard(owner string, name string, number string, expired string, holder string, cvv string, note string) {
-	key, err := misc.UnicKeyForExeDir()
-	if err != nil {
-		fmt.Println("Ошибка получения ключа:")
-		fmt.Println(err)
-		fmt.Println("Сохранение невозможно.")
-		return
-	}
-
+func setEntityCard(data entityData, pos int, number string, expired string, holder string, cvv string, note string) {
+	fmt.Println("Сохранённый номер карты:", *data.Number)
 	if number == "" {
-		number = dialog.GetAnswer("Введите номер карты:", false, false)
+		number = dialog.GetAnswer(posta("Новый номер карты"), false, true)
 		if number == "-" {
 			fmt.Println(otk)
 			return
+		} else if number == "" {
+			number = *data.Number
 		}
+	} else {
+		fmt.Println("Новый номер карты:", number)
 	}
 
+	fmt.Println("Сохранённый срок:", *data.Expired)
 	if expired == "" {
-		expired = dialog.GetAnswer("Введите срок NN/NN:", false, false)
+		expired = dialog.GetAnswer(posta("Новый срок NN/NN"), false, true)
 		if expired == "-" {
 			fmt.Println(otk)
 			return
+		} else if expired == "" {
+			expired = *data.Expired
 		}
+	} else {
+		fmt.Println("Новый срок:", expired)
 	}
 
+	fmt.Println("Сохранённый владелец:", *data.Holder)
 	if holder == "" {
-		holder = dialog.GetAnswer("Имя владельца:", false, false)
+		holder = dialog.GetAnswer(posta("Новое имя владельца"), false, true)
 		if holder == "-" {
 			fmt.Println(otk)
 			return
+		} else if holder == "" {
+			holder = *data.Holder
 		}
+	} else {
+		fmt.Println("Новое имя владельца:", holder)
 	}
 
+	fmt.Println("Сохранённый CVV:", *data.Cvv)
 	if cvv == "" {
-		cvv = dialog.GetAnswer("CVV:", false, false)
+		cvv = dialog.GetAnswer("Новый CVV:", false, true)
 		if cvv == "-" {
 			fmt.Println(otk)
 			return
+		} else if cvv == "" {
+			cvv = *data.Cvv
 		}
+	} else {
+		fmt.Println("Новый CVV:", cvv)
 	}
 
 	cd := time.Now()
-	et := co.EntityCard
-
-	var data entityData
-	data.Etype = &et
-	data.CreateDate = &cd
+	data.LocalDate = &cd
 	data.Expired = &expired
 	data.Number = &number
 	data.Holder = &holder
 	data.Cvv = &cvv
-	data.Name = &name
-	data.Owner = &owner
-	data.Note = &note
-
-	fileName := uuid.New().String()
-	data.File = &fileName
-
-	b, err := json.Marshal(data)
-	if err != nil {
-		fmt.Println("Неудачный marshal.")
-		fmt.Println("Сохранение невозможно.")
-		return
+	if note != "" {
+		data.Note = &note
+	} else {
+		data.Note = nil
 	}
 
-	err = misc.SaveToFileProtectedZIP("ADM\\"+fileName, "lopa", key, b)
-	if err != nil {
-		fmt.Println("Ошибка при сохранении:")
-		fmt.Println(err)
-		return
-	}
-	err = addToList(data)
+	err := setInList(data, pos)
 	if err != nil {
 		fmt.Println("Ошибка при сохранении в список:")
 		fmt.Println(err)
@@ -293,42 +211,7 @@ func newEntityCard(owner string, name string, number string, expired string, hol
 	fmt.Println("Данные успешно сохранены.")
 }
 
-func addToList(data entityData) error {
-	key, err := misc.UnicKeyForExeDir()
-	if err != nil {
-		return errors.New("не удалось получить ключ. Ошибка: " + err.Error())
-	}
-
-	exists, err := misc.FileExists("ADM\\list")
-	if err != nil {
-		return errors.New("Не удалось проверить реестр. Ошибка:" + err.Error())
-	}
-
-	var list []entityData
-	if exists {
-		r, isHuck, err := misc.ReadFromFileProtectedZIP("ADM\\list", key)
-		if isHuck || err != nil {
-			// Если мы не смогли открыть с нашим паролем key, полученным по алгоритму,
-			// то значит нам этот файл подложили снаружи.
-			return errors.New(tinto + " " + err.Error())
-		}
-		err = json.Unmarshal(r, &list)
-		if err != nil {
-			return errors.New("не удалось преобразовать в json. Ошибка:" + err.Error())
-		}
-	}
-
-	list = append(list, data)
-	b, err := json.Marshal(list)
-	if err != nil {
-		return errors.New("Не удалось закодировать list. Ошибка:" + err.Error())
-	}
-	err = misc.SaveToFileProtectedZIP("ADM\\list", "list", key, b)
-
-	return err
-}
-
-func newEntityBinary(owner string, name string, file string, note string) {
+func setEntityBinary(data entityData, pos int, file string, note string) {
 	key, err := misc.UnicKeyForExeDir()
 	if err != nil {
 		fmt.Println("Ошибка получения ключа:")
@@ -362,23 +245,11 @@ func newEntityBinary(owner string, name string, file string, note string) {
 		}
 	}
 	cd := time.Now()
-	et := co.EntityBinary
-
-	var data entityData
-	data.Etype = &et
-	data.CreateDate = &cd
-	data.Name = &name
-	data.Owner = &owner
-	data.Note = &note
-
-	fileName := uuid.New().String()
-	data.File = &fileName
-
-	b, err := json.Marshal(data)
-	if err != nil {
-		fmt.Println("Неудачный marshal.")
-		fmt.Println("Сохранение невозможно.")
-		return
+	data.LocalDate = &cd
+	if note != "" {
+		data.Note = &note
+	} else {
+		data.Note = nil
 	}
 
 	h, err := os.OpenFile(file, os.O_RDONLY, 0777)
@@ -390,21 +261,70 @@ func newEntityBinary(owner string, name string, file string, note string) {
 
 	path := filepath.Dir(file)
 	data.FilePath = &path
-	fnm := filepath.Base(file)
+	savedFileName := filepath.Base(file)
 
 	fmt.Print("Сохранение данных...")
-	err = misc.SaveToFileProtectedZIP_f("ADM\\"+fileName, key, "bin", b, fnm, h)
+	err = misc.SaveToFileProtectedZIP_r("ADM\\"+*data.File, key, savedFileName, h)
 	h.Close()
 	if err != nil {
 		fmt.Println("\rОшибка при сохранении:")
 		fmt.Println(err)
 		return
 	}
-	err = addToList(data)
+
+	err = setInList(data, pos)
 	if err != nil {
 		fmt.Println("\rОшибка при сохранении в список:")
 		fmt.Println(err)
 		return
 	}
 	fmt.Println("\rДанные успешно сохранены.")
+}
+
+func setEntityText(data entityData, pos int, text string, note string) {
+	key, err := misc.UnicKeyForExeDir()
+	if err != nil {
+		fmt.Println("Ошибка получения ключа:")
+		fmt.Println(err)
+		fmt.Println("Сохранение невозможно.")
+		return
+	}
+
+	if text == "" {
+		text = dialog.GetAnswer("Введите новый сохраняемый текст:", false, false)
+		if text == "-" {
+			fmt.Println(otk)
+			return
+		}
+	}
+
+	cd := time.Now()
+	data.LocalDate = &cd
+	if note != "" {
+		data.Note = &note
+	} else {
+		data.Note = nil
+	}
+
+	h := bytes.NewBuffer([]byte(text))
+
+	fmt.Print("Сохранение данных...")
+	err = misc.SaveToFileProtectedZIP_r("ADM\\"+*data.File, key, "text", h)
+	if err != nil {
+		fmt.Println("\rОшибка при сохранении:")
+		fmt.Println(err)
+		return
+	}
+
+	err = setInList(data, pos)
+	if err != nil {
+		fmt.Println("\rОшибка при сохранении в список:")
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("\rДанные успешно сохранены.")
+}
+
+func posta(s string) string {
+	return s + " (пусто - оставить старый):"
 }

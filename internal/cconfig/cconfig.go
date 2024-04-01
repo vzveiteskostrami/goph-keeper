@@ -25,10 +25,17 @@ type Configc struct {
 	SessionDuration *int64
 	Brief           *bool
 	EntityName      *string
+	EntityNewName   *string
 	WriteLogin      *string
 	WritePassword   *string
 	WriteFile       *string
+	Text            *string
 	EntityKind      *int
+	Number          *string
+	Expired         *string
+	Holder          *string
+	Cvv             *string
+	Note            *string
 }
 
 var cfg Configc
@@ -75,9 +82,16 @@ func ReadData() error {
 	cfg.Brief = flag.Bool("brief", false, "Show brief or full info anywhere, optional")
 	en := flag.String("e", "", "Kind of new entity, optional. Values: pass, card, text, bin")
 	cfg.EntityName = flag.String("n", "", "Name, in any cases, entity name, like example, optional")
+	cfg.EntityNewName = flag.String("nn", "", "New name for entity for operation \"set\", optional")
 	cfg.WriteLogin = flag.String("wl", "", "Saved login for entity \"pass\", optional")
 	cfg.WritePassword = flag.String("wp", "", "Saved password for entity \"pass\", optional")
 	cfg.WriteFile = flag.String("f", "", "File name, in any cases, for save to entity, as instance, optional")
+	cfg.Text = flag.String("t", "", "Text information for saving as text data, optional")
+	cfg.Number = flag.String("num", "", "Card number, optional")
+	cfg.Expired = flag.String("exp", "", "Card expired date, optional")
+	cfg.Holder = flag.String("hol", "", "Card holder name, optional")
+	cfg.Cvv = flag.String("cvv", "", "Card cvv, optional")
+	cfg.Note = flag.String("note", "", "Note for entity, optional")
 
 	flag.Parse()
 

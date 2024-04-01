@@ -1,6 +1,7 @@
 package oper
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -72,10 +73,10 @@ func GetEntity(owner string, name string) {
 		fmt.Println(*list[n].LocalDate)
 	}
 	fmt.Print("Синхронизация:")
-	if list[n].LocalDate == nil {
+	if list[n].ServerDate == nil {
 		fmt.Println(" ---")
 	} else {
-		fmt.Println(*list[n].LocalDate)
+		fmt.Println(*list[n].ServerDate)
 	}
 	if list[n].Note != nil && *list[n].Note != "" {
 		fmt.Println("Примечание:", *list[n].Note)
@@ -90,7 +91,19 @@ func GetEntity(owner string, name string) {
 		fmt.Println("Владелец:", *list[n].Holder)
 		fmt.Println("CVV:", *list[n].Cvv)
 	} else if *list[n].Etype == co.EntityText {
-
+		key, err := misc.UnicKeyForExeDir()
+		if err != nil {
+			fmt.Println("Не удалось получить ключ. Ошибка:")
+			fmt.Println(err.Error())
+			return
+		}
+		text, err := getText("ADM\\"+*list[n].File, key)
+		if err != nil {
+			fmt.Println("Не удалось считать информацию. Ошибка:")
+			fmt.Println(err.Error())
+		} else {
+			fmt.Println("Текст:", text)
+		}
 	} else if *list[n].Etype == co.EntityBinary {
 		fmt.Println("Директория:", *list[n].FilePath)
 		key, err := misc.UnicKeyForExeDir()
@@ -100,23 +113,28 @@ func GetEntity(owner string, name string) {
 			return
 		}
 		fmt.Print("Достаём данные из архива...")
-		fi, _, err := misc.ReadFromFileProtectedZIP_finfo("ADM\\"+*list[n].File, key)
+		fi, err := misc.ReadFromFileProtectedZIP_file_info("ADM\\"+*list[n].File, key)
 		if err != nil {
 			fmt.Println("\nНе удалось считать информацию. Ошибка:")
 			fmt.Println(err.Error())
 		} else {
-			fmt.Println("\rИмя файла:", fi.FileName)
+			fmt.Print("\rИмя файла: ", fi.FileName)
+			if rlen(fi.FileName) < 16 {
+				fmt.Print(strings.Repeat(" ", 16-rlen(fi.FileName)))
+			}
+			fmt.Println("")
 			fmt.Println("Размер:", misc.ByteCountIEC(fi.FileSize))
 			fmt.Println(delim)
 			y := dialog.Yn("Скачать файл из хранилища")
 			if y {
+				fmt.Print("Сохранение файла...")
 				newfn, err := saveToDownload("ADM\\"+*list[n].File, key, fi.FileName)
 				if err != nil {
-					fmt.Println("Не удалось сохранить файл. Ошибка:")
+					fmt.Println("\nНе удалось сохранить файл. Ошибка:")
 					fmt.Println(err.Error())
 				} else {
 					newfn := misc.ExecPath() + "\\DOWNLOAD\\" + newfn
-					fmt.Println("Файл сохранён в " + newfn)
+					fmt.Println("\nФайл сохранён в " + newfn)
 				}
 			}
 		}
@@ -136,14 +154,32 @@ func saveToDownload(file string, key string, sfile string) (string, error) {
 		return "", err
 	}
 	defer h.Close()
-	_, err = misc.ReadFromFileProtectedZIP_fonly_w(file, key, h)
+	_, err = misc.ReadFromFileProtectedZIP_w(file, key, h)
 	if err != nil {
 		return "", err
 	}
 	return fn, nil
 }
 
-func ShowEntityList(owner string, brief bool, etype int) {
+type localText struct {
+	Text string
+}
+
+func (w *localText) Write(p []byte) (n int, err error) {
+	w.Text = string(bytes.Clone(p))
+	return len(p), nil
+}
+
+func getText(file string, key string) (string, error) {
+	w := localText{}
+	_, err := misc.ReadFromFileProtectedZIP_w(file, key, &w)
+	if err != nil {
+		return "", err
+	}
+	return w.Text, nil
+}
+
+func ShowEntityList(owner string, brief bool, etype int, name string) {
 	dialog.DrawHeader("Список хранимых сущностей", true)
 	ok, err := misc.FileExists("ADM\\list")
 	if err == nil {
@@ -172,7 +208,7 @@ func ShowEntityList(owner string, brief bool, etype int) {
 		{caption: "Дата создания", width: 16},
 		{caption: "Дата изменения", width: 14},
 		{caption: "Синхронизация", width: 13},
-		{caption: "Файл", width: 36},
+		{caption: "Файл", width: 4},
 	}
 
 	for _, en := range list {
@@ -195,6 +231,9 @@ func ShowEntityList(owner string, brief bool, etype int) {
 				header[4].width = 16
 			}
 
+			if en.File != nil {
+				header[5].width = 36
+			}
 		}
 	}
 
@@ -221,9 +260,12 @@ func ShowEntityList(owner string, brief bool, etype int) {
 	}
 	fmt.Println("")
 
+	name = strings.ToLower(name)
+
 	for _, en := range list {
 		if *en.Owner == owner {
-			if etype == co.EntityNotDefined || *en.Etype == etype {
+			if (etype == co.EntityNotDefined || *en.Etype == etype) &&
+				(name == "" || strings.Contains(strings.ToLower(*en.Name), name)) {
 				fmt.Printf("| %-*s ", header[0].width, *en.Name)
 				fmt.Printf("| %-*s ", header[1].width, typeToRussString(*en.Etype))
 				if !brief {
@@ -241,7 +283,11 @@ func ShowEntityList(owner string, brief bool, etype int) {
 					} else {
 						fmt.Printf("| %-*s ", header[4].width, "---")
 					}
-					fmt.Printf("| %-*s ", header[5].width, *en.File)
+					if en.File != nil {
+						fmt.Printf("| %-*s ", header[5].width, *en.File)
+					} else {
+						fmt.Printf("| %-*s ", header[5].width, "")
+					}
 				}
 				fmt.Println("")
 			}
@@ -254,22 +300,4 @@ func ShowEntityList(owner string, brief bool, etype int) {
 		fmt.Print(strings.Repeat("-", header[ii].width+3))
 	}
 	fmt.Println("")
-}
-
-func typeToRussString(etype int) string {
-	if etype == co.EntityBinary {
-		return "Бинарные данные"
-	} else if etype == co.EntityText {
-		return "Текстовые данные"
-	} else if etype == co.EntityCard {
-		return "Банковская карта"
-	} else if etype == co.EntityLoginPassword {
-		return "Логин/пароль"
-	} else {
-		return "Не определено"
-	}
-}
-
-func rlen(s string) int {
-	return len([]rune(s))
 }

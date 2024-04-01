@@ -5,11 +5,13 @@ import (
 	"errors"
 	"time"
 
+	"github.com/vzveiteskostrami/goph-keeper/internal/co"
 	"github.com/vzveiteskostrami/goph-keeper/internal/misc"
 )
 
 const refuse string = "Отказ от выполнения операции"
 const tinto string = "попытка взлома. Пароль не подошёл. Файл подложен Тинто Брассом"
+const otk string = "Отказ от ввода."
 
 type authData struct {
 	Login    string    `json:"login,omitempty"`
@@ -34,6 +36,52 @@ type entityData struct {
 	LocalDate  *time.Time `json:"local_date,omitempty"`
 	ServerDate *time.Time `json:"server_date,omitempty"`
 	ServerID   *int64     `json:"server_id,omitempty"`
+}
+
+func CheckLocalSession() (string, error) {
+	ok, err := misc.FileExists("ADM\\local_token")
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", errors.New("Нет открытой локальной сессии.")
+	}
+
+	key, err := misc.UnicKeyForExeDir()
+	if err != nil {
+		return "", err
+	}
+	raw, _, err := misc.ReadFromFileProtectedZIP("ADM\\local_token", key)
+	if err != nil {
+		return "", err
+	}
+
+	token, err := getAuthData(raw)
+	if err != nil {
+		return "", err
+	}
+
+	if len(token) == 0 {
+		return "", errors.New("Токен пустой.")
+	}
+
+	if time.Until(token[0].Until) <= 0 {
+		return "", errors.New("Время локальной сесии истекло. Авторизируйтесь.")
+	}
+
+	return token[0].Login, nil
+}
+
+func GetRegisterList() ([]authData, error) {
+	key, err := misc.UnicKeyForExeDir()
+	if err != nil {
+		return []authData{}, err
+	}
+	raw, _, err := misc.ReadFromFileProtectedZIP("ADM\\register", key)
+	if err != nil {
+		return []authData{}, err
+	}
+	return getAuthData(raw)
 }
 
 // Проверка файла локального регистра на взлом.
@@ -159,18 +207,6 @@ func saveLocalToken(login string, until time.Time) error {
 	return err
 }
 
-func GetRegisterList() ([]authData, error) {
-	key, err := misc.UnicKeyForExeDir()
-	if err != nil {
-		return []authData{}, err
-	}
-	raw, _, err := misc.ReadFromFileProtectedZIP("ADM\\register", key)
-	if err != nil {
-		return []authData{}, err
-	}
-	return getAuthData(raw)
-}
-
 func getEntityList() ([]entityData, error) {
 	reg := []entityData{}
 	key, err := misc.UnicKeyForExeDir()
@@ -183,40 +219,6 @@ func getEntityList() ([]entityData, error) {
 	}
 	err = json.Unmarshal(raw, &reg)
 	return reg, err
-}
-
-func CheckLocalSession() (string, error) {
-	ok, err := misc.FileExists("ADM\\local_token")
-	if err != nil {
-		return "", err
-	}
-	if !ok {
-		return "", errors.New("Нет открытой локальной сессии.")
-	}
-
-	key, err := misc.UnicKeyForExeDir()
-	if err != nil {
-		return "", err
-	}
-	raw, _, err := misc.ReadFromFileProtectedZIP("ADM\\local_token", key)
-	if err != nil {
-		return "", err
-	}
-
-	token, err := getAuthData(raw)
-	if err != nil {
-		return "", err
-	}
-
-	if len(token) == 0 {
-		return "", errors.New("Токен пустой.")
-	}
-
-	if time.Until(token[0].Until) <= 0 {
-		return "", errors.New("Время локальной сесии истекло. Авторизируйтесь.")
-	}
-
-	return token[0].Login, nil
 }
 
 func entityExists(owner string, name string) (bool, error) {
@@ -247,4 +249,77 @@ func getAuthData(raw []byte) ([]authData, error) {
 	var ada []authData
 	err := json.Unmarshal(raw, &ada)
 	return ada, err
+}
+
+func addToList(data entityData) error {
+	return saveList(0, data, 0)
+}
+
+func delFromList(pos int) error {
+	var data entityData
+	return saveList(1, data, pos)
+}
+
+func setInList(data entityData, pos int) error {
+	return saveList(2, data, pos)
+}
+
+func saveList(mode byte, data entityData, pos int) error {
+	key, err := misc.UnicKeyForExeDir()
+	if err != nil {
+		return errors.New("не удалось получить ключ. Ошибка: " + err.Error())
+	}
+
+	exists, err := misc.FileExists("ADM\\list")
+	if err != nil {
+		return errors.New("Не удалось проверить реестр. Ошибка:" + err.Error())
+	}
+
+	var list []entityData
+	if exists {
+		r, isHuck, err := misc.ReadFromFileProtectedZIP("ADM\\list", key)
+		if isHuck || err != nil {
+			// Если мы не смогли открыть с нашим паролем key, полученным по алгоритму,
+			// то значит нам этот файл подложили снаружи.
+			return errors.New(tinto + " " + err.Error())
+		}
+		err = json.Unmarshal(r, &list)
+		if err != nil {
+			return errors.New("не удалось преобразовать в json. Ошибка:" + err.Error())
+		}
+	}
+
+	if mode == 0 {
+		list = append(list, data)
+	} else if mode == 1 {
+		list = append(list[:pos], list[pos+1:]...)
+	} else if mode == 2 {
+		list[pos] = data
+	}
+
+	b, err := json.Marshal(list)
+	if err != nil {
+		return errors.New("Не удалось закодировать list. Ошибка:" + err.Error())
+	}
+	err = misc.SaveToFileProtectedZIP("ADM\\list", "list", key, b)
+
+	return err
+}
+
+func typeToRussString(etype int) string {
+	if etype == co.EntityBinary {
+		return "Бинарные данные"
+	} else if etype == co.EntityText {
+		return "Текстовые данные"
+	} else if etype == co.EntityCard {
+		return "Банковская карта"
+	} else if etype == co.EntityLoginPassword {
+		return "Логин/пароль"
+	} else {
+		return "Не определено"
+	}
+}
+
+func rlen(s string) int {
+	return len([]rune(s))
 }
