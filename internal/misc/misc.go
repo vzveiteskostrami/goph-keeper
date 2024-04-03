@@ -35,11 +35,13 @@ type Claims struct {
 	Until  time.Time
 }
 
+// Атрибуты распаковываемого файла
 type FileInfoFromZIP struct {
 	FileName string
 	FileSize int64
 }
 
+// Ключ упаковки, привязанный к компу и директории
 var (
 	unicKeyForDir string
 )
@@ -126,7 +128,7 @@ func MakeToken(userID int64, until time.Time) (string, error) {
 	return tokenString, nil
 }
 
-// Чтения данных пользователя из JWT токена.
+// Чтение данных пользователя из JWT токена.
 func GetUserData(tokenString string) (int64, time.Time, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
@@ -214,6 +216,7 @@ func UnicKeyForExeDir() (string, error) {
 	return unicKeyForDir, nil
 }
 
+// Сохранение входящего потока в упакованный с шифрованием ZIP архив
 func SaveToFileProtectedZIP_r(fname string, key string, savename string, r io.Reader) error {
 	permissions := fs.FileMode(0644)
 
@@ -234,7 +237,7 @@ func SaveToFileProtectedZIP_r(fname string, key string, savename string, r io.Re
 	return err
 }
 
-// Сохранение информации в ZIP файл с паролем.
+// Сохранение массива байт в упакованный с шифрованием ZIP архив
 func SaveToFileProtectedZIP(fname string, iname string, key string, b []byte) error {
 	permissions := fs.FileMode(0644)
 
@@ -254,36 +257,7 @@ func SaveToFileProtectedZIP(fname string, iname string, key string, b []byte) er
 	return err
 }
 
-// Сохранение информации в ZIP файл с паролем.
-func SaveToFileProtectedZIP_f(fname string, key string, dname string, header []byte, fdname string, r io.Reader) error {
-	permissions := fs.FileMode(0644)
-
-	raw := new(bytes.Buffer)
-	zipw := zp.NewWriter(raw)
-
-	w, err := zipw.Encrypt(dname, key)
-	if err != nil {
-		return err
-	}
-	_, err = io.Copy(w, bytes.NewReader(header))
-	if err != nil {
-		return err
-	}
-
-	f, err := zipw.Encrypt(fdname, key)
-	if err != nil {
-		return err
-	}
-	_, err = io.Copy(f, r)
-	if err != nil {
-		return err
-	}
-
-	zipw.Close()
-	err = os.WriteFile(fname, raw.Bytes(), permissions)
-	return err
-}
-
+// Чтение упакованного с шифрованием ZIP архива в массив байт
 func ReadFromFileProtectedZIP(fname string, key string) ([]byte, bool, error) {
 	var b []byte
 	f, err := os.Open(fname)
@@ -316,7 +290,8 @@ func ReadFromFileProtectedZIP(fname string, key string) ([]byte, bool, error) {
 	return b, false, nil
 }
 
-func ReadFromFileProtectedZIP_file_info(fname string, key string) (FileInfoFromZIP, error) {
+// Чтение из упакованного с шифрованием ZIP архива информации о файле
+func ReadFromFileProtectedZIP_file_info(fname string) (FileInfoFromZIP, error) {
 	var fi FileInfoFromZIP
 	f, err := os.Open(fname)
 	if err != nil {
@@ -358,10 +333,6 @@ func ReadFromFileProtectedZIP_w(fname string, key string, w io.Writer) (bool, er
 		z.SetPassword(key)
 		rr, err := z.Open()
 		if err != nil {
-			// Если мы не смогли открыть с нашим паролем key, полученным по алгоритму,
-			// то значит нам этот файл подложили снаружи, чтобы попробовать посмотреть
-			// чей-то аккаунт с новым паролем, который определили в новом регистрационном файле.
-			// Ведь мы же не можем паковать ни с чем, кроме этого key.
 			return true, err
 		}
 		_, err = io.Copy(w, rr)
@@ -387,30 +358,6 @@ func ExecPath() string {
 	return filepath.Dir(here)
 }
 
-// Проверка наличия файла
-func Exists(path string) (bool, error) {
-	_, err := os.Stat(path)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return false, err
-}
-
-// Создание директории, если её нет
-func MakeDir(dirname string) error {
-	e, _ := Exists(dirname)
-	if !e {
-		err := os.Mkdir(dirname, 0777)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // Проверка наличия/отсутствия файла по определённому маршруту
 func FileExists(name string) (bool, error) {
 	_, err := os.Stat(name)
@@ -422,6 +369,18 @@ func FileExists(name string) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+// Создание директории, если её нет
+func MakeDir(dirname string) error {
+	e, _ := FileExists(dirname)
+	if !e {
+		err := os.Mkdir(dirname, 0777)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Проверка любого типа переменной на nil.
@@ -444,6 +403,7 @@ func IsNil(obj interface{}) bool {
 	return false
 }
 
+// Представление числа в удобном для чтения виде
 func ByteCountIEC(b int64) string {
 	const unit = 1024
 	if b < unit {

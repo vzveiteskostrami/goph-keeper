@@ -80,6 +80,8 @@ func mainRouter() chi.Router {
 		r.Use(logging.WithLogging)
 		r.Use(auth.AuthHandle)
 		r.Post("/sync", routes.Syncf)
+		r.Post("/wlist", routes.UserDataWritef)
+		r.Post("/list", routes.UserDataListf)
 	})
 
 	return r

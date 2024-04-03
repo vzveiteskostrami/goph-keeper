@@ -13,7 +13,7 @@ import (
 	"github.com/vzveiteskostrami/goph-keeper/internal/misc"
 )
 
-func NewEntity(owner string, etype int, name string, login string, password string, number string,
+func NewEntity(owner string, etype int16, name string, login string, password string, number string,
 	expired string, holder string, cvv string, note string, file string, txt string) {
 
 	if name == "" {

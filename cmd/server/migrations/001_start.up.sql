@@ -13,9 +13,10 @@ CREATE TABLE IF NOT EXISTS
              OID bigint not null,
              USERID bigint not null,
              DATA_TYPE smallint not null,
+             DATA_NAME character varying(256),
+             CREATE_TIME timestamptz not null, 
              UPDATE_TIME timestamptz not null, 
              DATA bytea,
-             NOTE character varying(1024), 
              DELETE_FLAG boolean DEFAULT false
             );
 CREATE UNIQUE INDEX IF NOT EXISTS datum_unique_on_oid ON datum (OID);

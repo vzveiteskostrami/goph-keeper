@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/vzveiteskostrami/goph-keeper/internal/co"
 )
 
 func CheckServerPresent() error {
@@ -80,4 +82,50 @@ func Syncronize() (int, error) {
 		_, err = makeError(rsp)
 	}
 	return rsp.StatusCode, err
+}
+
+func GetList(lst co.RequestList) ([]co.Udata, int, error) {
+	var da []co.Udata
+	body, err := json.Marshal(lst)
+	if err != nil {
+		return da, 0, err
+	}
+	reader := bytes.NewReader(body)
+	rsp, err := getResponce("POST", "list", reader)
+	if err != nil {
+		return da, 0, err
+	}
+	defer rsp.Body.Close()
+
+	err = nil
+	if rsp.StatusCode != http.StatusOK {
+		_, err = makeError(rsp)
+	} else {
+		err = json.NewDecoder(rsp.Body).Decode(&da)
+	}
+
+	return da, rsp.StatusCode, err
+}
+
+func WriteList(lst *[]co.Udata) ([]co.Udata, int, error) {
+	var da []co.Udata
+	body, err := json.Marshal(*lst)
+	if err != nil {
+		return da, 0, err
+	}
+	reader := bytes.NewReader(body)
+	rsp, err := getResponce("POST", "wlist", reader)
+	if err != nil {
+		return da, 0, err
+	}
+	defer rsp.Body.Close()
+
+	err = nil
+	if rsp.StatusCode != http.StatusOK {
+		_, err = makeError(rsp)
+	} else {
+		err = json.NewDecoder(rsp.Body).Decode(&da)
+	}
+
+	return da, rsp.StatusCode, err
 }

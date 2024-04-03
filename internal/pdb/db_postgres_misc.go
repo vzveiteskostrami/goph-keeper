@@ -10,7 +10,7 @@ import (
 
 func (d *PGStorage) UserIDExists(userID int64) (ok bool, err error) {
 	ok = false
-	rows, err := d.db.QueryContext(context.Background(), "SELECT 1 FROM UDATA WHERE USERID=$1;", userID)
+	rows, err := d.db.QueryContext(context.Background(), "SELECT 1 FROM UAUTH WHERE USERID=$1;", userID)
 	if err == nil && rows.Err() != nil {
 		err = rows.Err()
 	}

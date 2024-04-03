@@ -81,7 +81,7 @@ func GetInt(prompt string, usemin bool, min int64, usemax bool, max int64) (int6
 	return r, true
 }
 
-func Menu(data []string) int {
+func Menu(data []string) int16 {
 	ln := len(data) - 1
 
 	if ln < 1 {
@@ -104,7 +104,7 @@ func Menu(data []string) int {
 	fmt.Println("-. Отказаться от продолжения")
 	fmt.Println(delim)
 	ans, _ := GetInt("Выберите:", true, 1, true, int64(len(data)-1))
-	return int(ans)
+	return int16(ans)
 }
 
 func DrawHeader(he string, full bool) string {

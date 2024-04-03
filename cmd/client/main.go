@@ -188,6 +188,8 @@ func main() {
 
 	cfg := cconfig.Get()
 
+	*cfg.Operation = "sync"
+
 	if cfg.Operation == nil || *cfg.Operation == "" {
 		fmt.Println("Не указана операция \"-o=<operation>\"")
 		oper.SaveLastOperationDateTime()
@@ -229,6 +231,7 @@ func main() {
 		*cfg.Operation == "set" ||
 		*cfg.Operation == "rename" ||
 		*cfg.Operation == "list" ||
+		*cfg.Operation == "sync" ||
 		*cfg.Operation == "delete" ||
 		*cfg.Operation == "new" {
 		var err error
@@ -283,7 +286,7 @@ func main() {
 	} else if *cfg.Operation == "get" {
 		oper.GetEntity(sessionOwner, *cfg.EntityName)
 	} else if *cfg.Operation == "sync" {
-		oper.Syncronize()
+		oper.Syncronize(sessionOwner)
 	} else {
 		fmt.Println("Не опознана операция " + *cfg.Operation)
 	}

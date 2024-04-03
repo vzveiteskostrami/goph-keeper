@@ -75,6 +75,12 @@ func RenameEntity(owner string, name string, newname string) {
 	} else {
 		*data.LocalDate = time.Now()
 	}
+	if data.Updated == nil {
+		u := true
+		data.Updated = &u
+	} else {
+		*data.Updated = true
+	}
 	err = setInList(data, n)
 	if err != nil {
 		fmt.Println("Не удалось сохранить list. Ошибка:")

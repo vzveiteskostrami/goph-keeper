@@ -30,7 +30,7 @@ type Configc struct {
 	WritePassword   *string
 	WriteFile       *string
 	Text            *string
-	EntityKind      *int
+	EntityKind      *int16
 	Number          *string
 	Expired         *string
 	Holder          *string

@@ -247,12 +247,3 @@ func CheckLastOperationDateTime() bool {
 	}
 	return err == nil
 }
-
-func Syncronize() {
-	dialog.DrawHeader("Синхронизация", true)
-	_, err := chttp.Syncronize()
-	if err != nil {
-		fmt.Println("\rВо время синхронизации сервер вернул ошибку:")
-		fmt.Println(err.Error())
-	}
-}

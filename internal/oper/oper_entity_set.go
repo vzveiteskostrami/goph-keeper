@@ -80,6 +80,13 @@ func SetEntity(owner string, name string, login string, password string, number 
 		}
 	}
 
+	if list[n].Updated == nil {
+		u := true
+		list[n].Updated = &u
+	} else {
+		*list[n].Updated = true
+	}
+
 	if *list[n].Etype == co.EntityLoginPassword {
 		setEntityLoPa(list[n], n, login, password, note)
 	} else if *list[n].Etype == co.EntityCard {

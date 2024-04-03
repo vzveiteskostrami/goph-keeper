@@ -106,14 +106,8 @@ func GetEntity(owner string, name string) {
 		}
 	} else if *list[n].Etype == co.EntityBinary {
 		fmt.Println("Директория:", *list[n].FilePath)
-		key, err := misc.UnicKeyForExeDir()
-		if err != nil {
-			fmt.Println("Не удалось получить ключ. Ошибка:")
-			fmt.Println(err.Error())
-			return
-		}
 		fmt.Print("Достаём данные из архива...")
-		fi, err := misc.ReadFromFileProtectedZIP_file_info("ADM\\"+*list[n].File, key)
+		fi, err := misc.ReadFromFileProtectedZIP_file_info("ADM\\" + *list[n].File)
 		if err != nil {
 			fmt.Println("\nНе удалось считать информацию. Ошибка:")
 			fmt.Println(err.Error())
@@ -127,6 +121,12 @@ func GetEntity(owner string, name string) {
 			fmt.Println(delim)
 			y := dialog.Yn("Скачать файл из хранилища")
 			if y {
+				key, err := misc.UnicKeyForExeDir()
+				if err != nil {
+					fmt.Println("Не удалось получить ключ. Ошибка:")
+					fmt.Println(err.Error())
+					return
+				}
 				fmt.Print("Сохранение файла...")
 				newfn, err := saveToDownload("ADM\\"+*list[n].File, key, fi.FileName)
 				if err != nil {
@@ -179,7 +179,7 @@ func getText(file string, key string) (string, error) {
 	return w.Text, nil
 }
 
-func ShowEntityList(owner string, brief bool, etype int, name string) {
+func ShowEntityList(owner string, brief bool, etype int16, name string) {
 	dialog.DrawHeader("Список хранимых сущностей", true)
 	ok, err := misc.FileExists("ADM\\list")
 	if err == nil {

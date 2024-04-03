@@ -1,10 +1,12 @@
 package adb
 
 import (
+	"context"
 	"sync"
 	"time"
 
 	_ "github.com/lib/pq"
+	"github.com/vzveiteskostrami/goph-keeper/internal/co"
 	"github.com/vzveiteskostrami/goph-keeper/internal/pdb"
 )
 
@@ -23,6 +25,8 @@ type GSStorage interface {
 	UserIDExists(userID int64) (ok bool, err error)
 	Register(login *string, password *string) (code int, err error)
 	Authent(login *string, password *string, until time.Time) (token string, code int, err error)
+	WriteUserDataList(ctx context.Context, userID int64, data []co.Udata) (newdata []co.Udata, err error)
+	GetUserDataList(ctx context.Context, userID int64, info co.RequestList) (newdata []co.Udata, err error)
 }
 
 func Init() {
@@ -48,26 +52,12 @@ func Authent(login *string, password *string, until time.Time) (token string, co
 	return
 }
 
-type Order struct {
-	oid        *int64
-	userid     *int64
-	Number     *string `json:"number,omitempty"`
-	Status     *string `json:"status,omitempty"`
-	status     *int16
-	Accrual    *float32 `json:"accrual,omitempty"`
-	UploadedAt *string  `json:"uploaded_at,omitempty"`
-	uploadedAt *time.Time
-	deleteFlag *bool
+func GetUserDataList(ctx context.Context, userID int64, info co.RequestList) (data []co.Udata, err error) {
+	data, err = store.GetUserDataList(ctx, userID, info)
+	return
 }
 
-type Balance struct {
-	Current   *float32 `json:"current,omitempty"`
-	Withdrawn *float32 `json:"withdrawn,omitempty"`
-}
-
-type Withdraw struct {
-	Order        *string  `json:"order,omitempty"`
-	Sum          *float32 `json:"sum,omitempty"`
-	ProcessedAt  *string  `json:"processed_at,omitempty"`
-	withdrawDate *time.Time
+func WriteUserDataList(ctx context.Context, userID int64, data []co.Udata) (newdata []co.Udata, err error) {
+	newdata, err = store.WriteUserDataList(ctx, userID, data)
+	return
 }

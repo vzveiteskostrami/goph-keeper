@@ -21,7 +21,7 @@ type authData struct {
 
 type entityData struct {
 	Owner      *string    `json:"owner,omitempty"`
-	Etype      *int       `json:"type,omitempty"`
+	Etype      *int16     `json:"type,omitempty"`
 	Name       *string    `json:"name,omitempty"`
 	File       *string    `json:"file,omitempty"`
 	Login      *string    `json:"login,omitempty"`
@@ -36,6 +36,7 @@ type entityData struct {
 	LocalDate  *time.Time `json:"local_date,omitempty"`
 	ServerDate *time.Time `json:"server_date,omitempty"`
 	ServerID   *int64     `json:"server_id,omitempty"`
+	Updated    *bool      `json:"updated,omitempty"`
 }
 
 func CheckLocalSession() (string, error) {
@@ -306,7 +307,7 @@ func saveList(mode byte, data entityData, pos int) error {
 	return err
 }
 
-func typeToRussString(etype int) string {
+func typeToRussString(etype int16) string {
 	if etype == co.EntityBinary {
 		return "Бинарные данные"
 	} else if etype == co.EntityText {
