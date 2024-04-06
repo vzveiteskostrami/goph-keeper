@@ -3,6 +3,7 @@ package pdb
 import (
 	"context"
 	"encoding/base64"
+	"strconv"
 	"time"
 
 	"github.com/vzveiteskostrami/goph-keeper/internal/co"
@@ -56,6 +57,36 @@ func (d *PGStorage) WriteUserDataList(ctx context.Context, userID int64, data []
 
 		nd := co.Udata{Oid: da.Oid, DataName: da.DataName, UpdateTime: &updateTime}
 		newdata = append(newdata, nd)
+	}
+
+	trn.Commit()
+	return
+}
+
+func (d *PGStorage) DeleteDataList(ctx context.Context, data []co.Udata) (err error) {
+	trn, err := d.db.BeginTx(ctx, nil)
+	if err != nil {
+		return
+	}
+	defer trn.Rollback()
+
+	updateTime := time.Now()
+	s := ""
+	for _, da := range data {
+		if da.Oid != nil {
+			s += strconv.FormatInt(*da.Oid, 10) + ","
+		}
+	}
+	if len(s) == 0 {
+		return
+	}
+	s = s[:len(s)-1] + ")"
+
+	sql := "UPDATE DATUM SET UPDATE_TIME=$1,DELETE_FLAG=true WHERE OID IN (" + s + ";"
+
+	_, err = trn.ExecContext(ctx, sql, updateTime)
+	if err != nil {
+		return
 	}
 
 	trn.Commit()

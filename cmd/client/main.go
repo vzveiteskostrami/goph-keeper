@@ -44,7 +44,7 @@
    Операции вводятся в командной строке с помощью флага -o <название выполняемой операции>.
     Доступные на данный момент операции:
      registration - регистрация нового пользователя
-     session      - создание сессии для пользователя
+     session      - создание\закрытие сессии для пользователя
 	 new          - добавление новой сущности в локальное хранилище
      set          - изменение данных хранимой сущности в локальном хранилище
 	 get          - получение данных хранимой сущности в читаемом виде
@@ -71,9 +71,12 @@
 	                             только для локального хранилища. Имеет смысл использовать
 								 именно его, если в данной сессии не предполагается
 								 синхронизация с сервером
+	  -close                   - флаг без уточнений, указывающий, что надо принудительно
+	                             закрыть сессию
 	  Пример:
 	    c:\ii>client -o session -l Буратино -p tri_korochki_hleba -du 60 -local
 	    c:\ii>client -o session -l Буратино -p tri_korochki_hleba -du 1 -both
+	    c:\ii>client -o session -close
 
     Добавление новой сущности в локальное хранилище (new).
 	 Имеет общие параметры:
@@ -165,8 +168,39 @@
 	    c:\ii>client -o list -e pass
 	    c:\ii>client -o list -e card -n "сбер"
 
-    Синхронизация данных с сервером (sync). Пока не реализовано. Возможно будет иметь параметры.
-     Имеет параметры:
+    Синхронизация данных с сервером (sync).
+	 Синхронизация выполняет следующие операции:
+	    1) Выгрузка новых сущностей на сервер.
+	    2) Обновление изменённых сущностей на сервере.
+		3) Загрузка появившихся на сервере новых сущностей в локальное хранилище.
+		4) Загрузка изменившихся на сервере сущностей в локальное хранилище.
+		5) Удаление на сервере сущностей, уже удалённых из локального хранилица.
+		6) Удаление из локального хранилища сущностей, удалённых с сервера.
+		7) Отслеживание конфликтов корректировки данных.
+    В общем случае запускается без параметров.
+	  client -o sync
+	  при таких параметрах в одном запуске клиента будут выполнены все приведённые
+	  выше операции.
+	  При использовании параметра -n <имя сущности> будет проведена синхронизация
+	  только указанной сущности. Доступны операции обновления и записи новых данных.
+	  Не распространяется на удаление.
+	  client -o sync -n "Секретный пароль"
+	  Будут синхронизированы данные только сущности "Секретный пароль".
+	  Обычно такое поведение не требуется, режим сделан не для одиночной синхронизации,
+	  а для разрешения конфликтов. Просто его можно использовать в качестве одиночной
+	  синхронизации, но особого смысла в такой операции нет.
+      В случае разрешения конфликта необходимо воспользоваться флагом -strict.
+	  Флаг -strict имеет два возможных значения:
+         -strict read  - исчерпать конфликт, загрузив данные сущности с сервера
+		                 в локальное хранилище.
+		 -strict write - исчерпать конфликт, загрузив данные сущности из локального
+		                 хранилища на сервер.
+	  Флаг -strict без указания имени сущности игнорируется, будет выполнена обыкновенная
+	  операция синхронизации.
+	  Пример:
+	    c:\ii>client -o sync
+		c:\ii>client -o sync -n "Данные карты Сбер" -strict read
+		c:\ii>client -o sync -n "Данные карты Альфа-банк" -strict write
 */
 
 package main
@@ -174,21 +208,19 @@ package main
 import (
 	"fmt"
 
-	"github.com/vzveiteskostrami/goph-keeper/internal/cconfig"
-	"github.com/vzveiteskostrami/goph-keeper/internal/chttp"
+	"github.com/vzveiteskostrami/goph-keeper/internal/client/chttp"
+	"github.com/vzveiteskostrami/goph-keeper/internal/client/config"
+	"github.com/vzveiteskostrami/goph-keeper/internal/client/oper"
 	"github.com/vzveiteskostrami/goph-keeper/internal/co"
-	"github.com/vzveiteskostrami/goph-keeper/internal/oper"
 )
 
 func main() {
-	if err := cconfig.ReadData(); err != nil {
+	if err := config.ReadData(); err != nil {
 		fmt.Println("Ошибка чтения конфигурации:", err)
 		return
 	}
 
-	cfg := cconfig.Get()
-
-	*cfg.Operation = "sync"
+	cfg := config.Get()
 
 	if cfg.Operation == nil || *cfg.Operation == "" {
 		fmt.Println("Не указана операция \"-o=<operation>\"")
@@ -248,6 +280,8 @@ func main() {
 
 	if *cfg.Operation == "registration" {
 		oper.Registration(*cfg.Login, *cfg.Password)
+	} else if *cfg.Operation == "session" && *cfg.Place == co.SessionClose {
+		oper.CloseSession()
 	} else if *cfg.Operation == "session" {
 		oper.Authorization(*cfg.Login, *cfg.Password, *cfg.Place, *cfg.SessionDuration)
 	} else if *cfg.Operation == "list" {
@@ -286,7 +320,7 @@ func main() {
 	} else if *cfg.Operation == "get" {
 		oper.GetEntity(sessionOwner, *cfg.EntityName)
 	} else if *cfg.Operation == "sync" {
-		oper.Syncronize(sessionOwner)
+		oper.Syncronize(sessionOwner, *cfg.EntityName, *cfg.Strict)
 	} else {
 		fmt.Println("Не опознана операция " + *cfg.Operation)
 	}

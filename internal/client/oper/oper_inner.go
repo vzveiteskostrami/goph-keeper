@@ -169,7 +169,30 @@ func registerLocally(login string, password string) error {
 	return err
 }
 
-func localAuthorization(login string, password string) (bool, error) {
+func localAuthorization(login string, password string, place int) (bool, error) {
+	if ex, _ := misc.FileExists("ADM\\register"); !ex && place == co.SessionBoth {
+		key, err := misc.UnicKeyForExeDir()
+		if err != nil {
+			return false, err
+		}
+
+		list := []authData{{Login: login, Password: password}}
+		b, err := json.Marshal(list)
+		if err != nil {
+			return false, errors.New("Не удалось закодировать list. Ошибка:" + err.Error())
+		}
+		err = misc.MakeDir("ADM")
+		if err != nil {
+			return false, errors.New("Не удалось создать ADM. Ошибка:" + err.Error())
+		}
+		err = misc.SaveToFileProtectedZIP("ADM\\register", "list", key, b)
+		if err != nil {
+			return false, errors.New("Не удалось сохранить list. Ошибка:" + err.Error())
+		} else {
+			return true, nil
+		}
+	}
+
 	reg, err := GetRegisterList()
 	if err != nil {
 		return false, err

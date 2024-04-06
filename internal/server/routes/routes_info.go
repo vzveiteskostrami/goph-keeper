@@ -5,10 +5,10 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/vzveiteskostrami/goph-keeper/internal/adb"
-	"github.com/vzveiteskostrami/goph-keeper/internal/auth"
 	"github.com/vzveiteskostrami/goph-keeper/internal/co"
-	"github.com/vzveiteskostrami/goph-keeper/internal/logging"
+	"github.com/vzveiteskostrami/goph-keeper/internal/server/adb"
+	"github.com/vzveiteskostrami/goph-keeper/internal/server/auth"
+	"github.com/vzveiteskostrami/goph-keeper/internal/server/logging"
 )
 
 func Echof(w http.ResponseWriter, r *http.Request) {

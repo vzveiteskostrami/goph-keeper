@@ -8,8 +8,8 @@ import (
 	"github.com/golang-migrate/migrate/database/postgres"
 	_ "github.com/golang-migrate/migrate/source/file"
 	_ "github.com/lib/pq"
-	"github.com/vzveiteskostrami/goph-keeper/internal/config"
-	"github.com/vzveiteskostrami/goph-keeper/internal/logging"
+	"github.com/vzveiteskostrami/goph-keeper/internal/server/config"
+	"github.com/vzveiteskostrami/goph-keeper/internal/server/logging"
 )
 
 type PGStorage struct {

@@ -1,14 +1,12 @@
 package chttp
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
-	"github.com/vzveiteskostrami/goph-keeper/internal/cconfig"
+	"github.com/vzveiteskostrami/goph-keeper/internal/client/config"
 	"github.com/vzveiteskostrami/goph-keeper/internal/misc"
 )
 
@@ -19,20 +17,16 @@ type sdata struct {
 }
 
 func getResponce(method string, route string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequest(method, *cconfig.Get().ServerAddress+route, body)
+	req, err := http.NewRequest(method, *config.Get().ServerAddress+route, body)
 	if err != nil {
 		return nil, err
 	}
 
-	//ctx, cancel := context.WithTimeout(context.TODO(), 500*time.Millisecond)
-	ctx, cancel := context.WithTimeout(context.TODO(), 500*time.Minute)
-	defer cancel()
-
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
-	client := &http.Client{Transport: tr}
-
+	client := &http.Client{Transport: tr, Timeout: 0}
+	misc.MakeDir("ADM")
 	if ok, _ := misc.FileExists("ADM\\token"); ok {
 		key, _ := misc.UnicKeyForExeDir()
 		b, _, err := misc.ReadFromFileProtectedZIP("ADM\\token", key)
@@ -45,7 +39,7 @@ func getResponce(method string, route string, body io.Reader) (*http.Response, e
 		}
 	}
 
-	resp, err := client.Do(req.WithContext(ctx))
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}

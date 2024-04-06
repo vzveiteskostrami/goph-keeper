@@ -109,7 +109,7 @@ func GetEntity(owner string, name string) {
 		fmt.Print("Достаём данные из архива...")
 		fi, err := misc.ReadFromFileProtectedZIP_file_info("ADM\\" + *list[n].File)
 		if err != nil {
-			fmt.Println("\nНе удалось считать информацию. Ошибка:")
+			fmt.Println("\rНе удалось считать информацию. Ошибка:")
 			fmt.Println(err.Error())
 		} else {
 			fmt.Print("\rИмя файла: ", fi.FileName)
@@ -130,11 +130,11 @@ func GetEntity(owner string, name string) {
 				fmt.Print("Сохранение файла...")
 				newfn, err := saveToDownload("ADM\\"+*list[n].File, key, fi.FileName)
 				if err != nil {
-					fmt.Println("\nНе удалось сохранить файл. Ошибка:")
+					fmt.Println("\rНе удалось сохранить файл. Ошибка:")
 					fmt.Println(err.Error())
 				} else {
 					newfn := misc.ExecPath() + "\\DOWNLOAD\\" + newfn
-					fmt.Println("\nФайл сохранён в " + newfn)
+					fmt.Println("\rФайл сохранён в " + newfn)
 				}
 			}
 		}

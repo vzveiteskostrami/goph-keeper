@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/vzveiteskostrami/goph-keeper/internal/co"
-	"github.com/vzveiteskostrami/goph-keeper/internal/logging"
+	"github.com/vzveiteskostrami/goph-keeper/internal/server/logging"
 )
 
 func (d *PGStorage) GetUserDataList(ctx context.Context, userID int64, info co.RequestList) (data []co.Udata, err error) {
@@ -15,15 +15,14 @@ func (d *PGStorage) GetUserDataList(ctx context.Context, userID int64, info co.R
 	if *info.Full {
 		sql += ",DATA"
 	}
-	sql += " FROM DATUM WHERE USERID=$1"
+	sql += " FROM DATUM WHERE USERID=$1 AND NOT DELETE_FLAG"
 	if !*info.All {
 		if len(info.Data) > 0 {
 			s := " AND OID IN ("
 			for _, a := range info.Data {
 				s += strconv.FormatInt(*a.Oid, 10) + ","
 			}
-			s = s[:len(s)-1]
-			s += ")"
+			s = s[:len(s)-1] + ")"
 			sql += s
 		}
 	}

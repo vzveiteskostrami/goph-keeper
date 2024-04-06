@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/vzveiteskostrami/goph-keeper/internal/cconfig"
-	"github.com/vzveiteskostrami/goph-keeper/internal/chttp"
+	"github.com/vzveiteskostrami/goph-keeper/internal/client/chttp"
+	"github.com/vzveiteskostrami/goph-keeper/internal/client/config"
 	"github.com/vzveiteskostrami/goph-keeper/internal/co"
 	"github.com/vzveiteskostrami/goph-keeper/internal/dialog"
 	"github.com/vzveiteskostrami/goph-keeper/internal/misc"
@@ -66,7 +66,7 @@ func Registration(login string, password string) {
 			} else {
 				fmt.Println("\rВы зарегистрированы! Добро пожаловать на борт!")
 				if dialog.Yn("Желаете открыть сессию прямо сейчас") {
-					cfg := cconfig.Get()
+					cfg := config.Get()
 					Authorization(login, password, *cfg.Place, 0)
 				}
 				break
@@ -152,12 +152,16 @@ func Authorization(login string, password string, place int, sessDuration int64)
 				login = ""
 				password = ""
 			}
+
+			if code == http.StatusOK {
+				fmt.Println("\rАвторизация на сервере успешна.           ")
+			}
 		}
 
 		if err == nil && (place == co.SessionLocal || place == co.SessionBoth) {
 			fmt.Print("Попытка авторизоваться локально...")
 			var checked bool
-			checked, err = localAuthorization(login, password)
+			checked, err = localAuthorization(login, password, place)
 			if err != nil {
 				fmt.Println("\rВо время локальной авторизации произошла ошибка:")
 				fmt.Println(err.Error())

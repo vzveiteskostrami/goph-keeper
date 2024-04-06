@@ -6,6 +6,7 @@ const (
 	SessionNotDefined = iota + 1
 	SessionLocal
 	SessionBoth
+	SessionClose
 )
 
 const (
@@ -14,6 +15,12 @@ const (
 	EntityCard
 	EntityText
 	EntityBinary
+)
+
+const (
+	StrictNo int16 = iota
+	StrictRead
+	StrictWrite
 )
 
 const ServerKey string = "L_vWeAMKmC1yTOThJtwA9g1$LN1zqTou-$*o8J$G596N459ERBNV_7340t3_47b4"

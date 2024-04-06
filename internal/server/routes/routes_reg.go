@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/vzveiteskostrami/goph-keeper/internal/adb"
-	"github.com/vzveiteskostrami/goph-keeper/internal/logging"
 	"github.com/vzveiteskostrami/goph-keeper/internal/misc"
+	"github.com/vzveiteskostrami/goph-keeper/internal/server/adb"
+	"github.com/vzveiteskostrami/goph-keeper/internal/server/logging"
 )
 
 func Registerf(w http.ResponseWriter, r *http.Request) {

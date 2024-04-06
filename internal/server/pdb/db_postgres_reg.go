@@ -7,8 +7,8 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
-	"github.com/vzveiteskostrami/goph-keeper/internal/logging"
 	"github.com/vzveiteskostrami/goph-keeper/internal/misc"
+	"github.com/vzveiteskostrami/goph-keeper/internal/server/logging"
 )
 
 func (d *PGStorage) Register(login *string, password *string) (code int, err error) {

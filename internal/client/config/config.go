@@ -1,4 +1,4 @@
-package cconfig
+package config
 
 import (
 	"context"
@@ -36,6 +36,7 @@ type Configc struct {
 	Holder          *string
 	Cvv             *string
 	Note            *string
+	Strict          *int16
 }
 
 var cfg Configc
@@ -78,6 +79,7 @@ func ReadData() error {
 	cfg.Password = flag.String("p", "", "User's password, optional")
 	sessBoth := flag.Bool("both", false, "Create session for both places (Server & Client), optional")
 	sessLocal := flag.Bool("local", false, "Create session for client only, optional")
+	sessClose := flag.Bool("close", false, "Close active session, if exists, optional")
 	cfg.SessionDuration = flag.Int64("du", 0, "Desired session duration, minutes, optional")
 	cfg.Brief = flag.Bool("brief", false, "Show brief or full info anywhere, optional")
 	en := flag.String("e", "", "Kind of new entity, optional. Values: pass, card, text, bin")
@@ -92,6 +94,7 @@ func ReadData() error {
 	cfg.Holder = flag.String("hol", "", "Card holder name, optional")
 	cfg.Cvv = flag.String("cvv", "", "Card cvv, optional")
 	cfg.Note = flag.String("note", "", "Note for entity, optional")
+	cor := flag.String("strict", "", "Kind of conflict resolving, optional. Values: read, write")
 
 	flag.Parse()
 
@@ -121,9 +124,24 @@ func ReadData() error {
 		}
 	}
 
+	z := co.StrictNo
+	cfg.Strict = &z
+	if *cor != "" {
+		if *cor == "read" {
+			*cfg.Strict = co.StrictRead
+		} else if *cor == "write" {
+			*cfg.Strict = co.StrictWrite
+		} else {
+			fmt.Println("!!! Не опознано действие -strict " + *cor + ".")
+			fmt.Println("Сброшено.")
+		}
+	}
+
 	i := co.SessionNotDefined
 	cfg.Place = &i
-	if *sessBoth {
+	if *sessClose {
+		*cfg.Place = co.SessionClose
+	} else if *sessBoth {
 		*cfg.Place = co.SessionBoth
 	} else if *sessLocal {
 		*cfg.Place = co.SessionLocal

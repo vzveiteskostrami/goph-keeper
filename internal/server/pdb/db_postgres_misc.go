@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	_ "github.com/lib/pq"
-	"github.com/vzveiteskostrami/goph-keeper/internal/logging"
+	"github.com/vzveiteskostrami/goph-keeper/internal/server/logging"
 )
 
 func (d *PGStorage) UserIDExists(userID int64) (ok bool, err error) {

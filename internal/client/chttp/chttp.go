@@ -67,6 +67,7 @@ func Authorization(login string, password string, sessDuration int64) (int, erro
 	return rsp.StatusCode, err
 }
 
+/*
 func Syncronize() (int, error) {
 	body := []byte("")
 	reader := bytes.NewReader(body)
@@ -83,8 +84,9 @@ func Syncronize() (int, error) {
 	}
 	return rsp.StatusCode, err
 }
+*/
 
-func GetList(lst co.RequestList) ([]co.Udata, int, error) {
+func GetEntityList(lst co.RequestList) ([]co.Udata, int, error) {
 	var da []co.Udata
 	body, err := json.Marshal(lst)
 	if err != nil {
@@ -107,7 +109,7 @@ func GetList(lst co.RequestList) ([]co.Udata, int, error) {
 	return da, rsp.StatusCode, err
 }
 
-func WriteList(lst *[]co.Udata) ([]co.Udata, int, error) {
+func WriteEntityList(lst *[]co.Udata) ([]co.Udata, int, error) {
 	var da []co.Udata
 	body, err := json.Marshal(*lst)
 	if err != nil {
@@ -128,4 +130,24 @@ func WriteList(lst *[]co.Udata) ([]co.Udata, int, error) {
 	}
 
 	return da, rsp.StatusCode, err
+}
+
+func DeleteEntityList(lst *[]co.Udata) (int, error) {
+	body, err := json.Marshal(*lst)
+	if err != nil {
+		return 0, err
+	}
+	reader := bytes.NewReader(body)
+	rsp, err := getResponce("POST", "del", reader)
+	if err != nil {
+		return 0, err
+	}
+	defer rsp.Body.Close()
+
+	err = nil
+	if rsp.StatusCode != http.StatusOK {
+		_, err = makeError(rsp)
+	}
+
+	return rsp.StatusCode, err
 }

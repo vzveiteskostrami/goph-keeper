@@ -13,12 +13,12 @@ import (
 	"github.com/go-chi/chi"
 	"golang.org/x/crypto/acme/autocert"
 
-	"github.com/vzveiteskostrami/goph-keeper/internal/adb"
-	"github.com/vzveiteskostrami/goph-keeper/internal/auth"
-	"github.com/vzveiteskostrami/goph-keeper/internal/compressing"
-	"github.com/vzveiteskostrami/goph-keeper/internal/config"
-	"github.com/vzveiteskostrami/goph-keeper/internal/logging"
-	"github.com/vzveiteskostrami/goph-keeper/internal/routes"
+	"github.com/vzveiteskostrami/goph-keeper/internal/server/adb"
+	"github.com/vzveiteskostrami/goph-keeper/internal/server/auth"
+	"github.com/vzveiteskostrami/goph-keeper/internal/server/compressing"
+	"github.com/vzveiteskostrami/goph-keeper/internal/server/config"
+	"github.com/vzveiteskostrami/goph-keeper/internal/server/logging"
+	"github.com/vzveiteskostrami/goph-keeper/internal/server/routes"
 )
 
 var (
@@ -79,7 +79,7 @@ func mainRouter() chi.Router {
 		r.Use(compressing.GZIPHandle)
 		r.Use(logging.WithLogging)
 		r.Use(auth.AuthHandle)
-		r.Post("/sync", routes.Syncf)
+		r.Post("/del", routes.DeleteDataWritef)
 		r.Post("/wlist", routes.UserDataWritef)
 		r.Post("/list", routes.UserDataListf)
 	})

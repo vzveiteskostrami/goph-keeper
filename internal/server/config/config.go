@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/vzveiteskostrami/goph-keeper/internal/logging"
+	"github.com/vzveiteskostrami/goph-keeper/internal/server/logging"
 )
 
 type PConfig struct {

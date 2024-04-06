@@ -21,7 +21,7 @@ import (
 	zp "github.com/alexmullins/zip"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/sandipmavani/hardwareid"
-	"github.com/vzveiteskostrami/goph-keeper/internal/logging"
+	"github.com/vzveiteskostrami/goph-keeper/internal/server/logging"
 )
 
 const cryptoKey = "sxcbuascyghauyasuywqwbicqwugeygqwgueyqwgeuqwywnmxzcpoeqweyiqwenbnmbfghm"
@@ -264,6 +264,7 @@ func ReadFromFileProtectedZIP(fname string, key string) ([]byte, bool, error) {
 	if err != nil {
 		return b, false, err
 	}
+	defer f.Close()
 	r, err := io.ReadAll(f)
 	if err != nil {
 		return b, false, err

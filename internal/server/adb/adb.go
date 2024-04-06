@@ -7,7 +7,7 @@ import (
 
 	_ "github.com/lib/pq"
 	"github.com/vzveiteskostrami/goph-keeper/internal/co"
-	"github.com/vzveiteskostrami/goph-keeper/internal/pdb"
+	"github.com/vzveiteskostrami/goph-keeper/internal/server/pdb"
 )
 
 var lockWrite sync.Mutex
@@ -27,6 +27,7 @@ type GSStorage interface {
 	Authent(login *string, password *string, until time.Time) (token string, code int, err error)
 	WriteUserDataList(ctx context.Context, userID int64, data []co.Udata) (newdata []co.Udata, err error)
 	GetUserDataList(ctx context.Context, userID int64, info co.RequestList) (newdata []co.Udata, err error)
+	DeleteDataList(ctx context.Context, data []co.Udata) (err error)
 }
 
 func Init() {
@@ -59,5 +60,10 @@ func GetUserDataList(ctx context.Context, userID int64, info co.RequestList) (da
 
 func WriteUserDataList(ctx context.Context, userID int64, data []co.Udata) (newdata []co.Udata, err error) {
 	newdata, err = store.WriteUserDataList(ctx, userID, data)
+	return
+}
+
+func DeleteDataList(ctx context.Context, data []co.Udata) (err error) {
+	err = store.DeleteDataList(ctx, data)
 	return
 }
